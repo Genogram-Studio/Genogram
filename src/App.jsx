@@ -695,6 +695,14 @@ const storage = (typeof window !== "undefined" && window.storage) ? window.stora
         get: async (key) => { const v = window.localStorage.getItem(key); return v == null ? null : { key, value: v }; },
         set: async (key, value) => { window.localStorage.setItem(key, value); return { key, value }; },
         delete: async (key) => { window.localStorage.removeItem(key); return { key, deleted: true }; },
+        list: async (prefix = "") => {
+          const keys = [];
+          for (let i = 0; i < window.localStorage.length; i++) {
+            const k = window.localStorage.key(i);
+            if (k && k.startsWith(prefix)) keys.push(k);
+          }
+          return { keys, prefix };
+        },
       }
     : null
 );
@@ -6953,8 +6961,29 @@ function AppInner() {
   useEffect(() => {
     (async () => {
       if (!storage) { booted.current = true; return; }
-      try { const r = await storage.get("gs:index"); setStorageOK(true); if (r?.value) setCases(JSON.parse(r.value)); }
+      let idx = [];
+      try { const r = await storage.get("gs:index"); setStorageOK(true); if (r?.value) idx = JSON.parse(r.value) || []; }
       catch { setStorageOK(true); }
+      /* 색인이 덮어써지거나 사라져도 gs:case:* 원본은 남아 있으므로, 색인에 없는 사례를 다시 찾아 목록에 넣는다 */
+      try {
+        const r = storage.list ? await storage.list("gs:case:") : null;
+        const known = new Set(idx.map((c) => c.id));
+        const found = [];
+        for (const k of r?.keys || []) {
+          const id = k.slice("gs:case:".length);
+          if (!id || known.has(id)) continue;
+          try {
+            const v = await storage.get(k);
+            const d = v?.value ? JSON.parse(v.value) : null;
+            if (d) found.push({ id, title: d.title || "", savedAt: d.savedAt || "" });
+          } catch {}
+        }
+        if (found.length) {
+          idx = [...idx, ...found].sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
+          await storage.set("gs:index", JSON.stringify(idx)).catch(() => {});
+        }
+      } catch {}
+      setCases(idx);
       try {
         const r = await storage.get("gs:autosave");
         if (r?.value === "off") setAutosaveOn(false);
