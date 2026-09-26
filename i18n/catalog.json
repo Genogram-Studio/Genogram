@@ -1,6 +1,6 @@
 {
  "generatedFrom": "src/App.jsx",
- "count": 1012,
+ "count": 1019,
  "items": [
   {
    "en": "Genogram Studio",
@@ -8443,6 +8443,36 @@
    "ambiguous": false
   },
   {
+   "en": "Taiwan",
+   "ko": "대만",
+   "zh": "台灣",
+   "section": "ZH_REGION",
+   "words": 1,
+   "tier": 1,
+   "uses": 2,
+   "ambiguous": false
+  },
+  {
+   "en": "Beijing",
+   "ko": "북경어",
+   "zh": "北京",
+   "section": "ZH_REGION",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Hong Kong",
+   "ko": "홍콩",
+   "zh": "香港",
+   "section": "ZH_REGION",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
    "en": "Translate",
    "ko": "번역",
    "zh": "翻譯",
@@ -9019,7 +9049,7 @@
    "section": "TranslateDock",
    "words": 1,
    "tier": 1,
-   "uses": 1,
+   "uses": 2,
    "ambiguous": false
   },
   {
@@ -9606,6 +9636,46 @@
    "en": "Playing audio…",
    "ko": "재생 중…",
    "zh": "播放中…",
+   "section": "InterpreterSection",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Voice: OpenAI, Taiwan Mandarin",
+   "ko": "음성: OpenAI · 대만 화어로 읽도록 지시",
+   "zh": "語音：OpenAI・台灣華語",
+   "section": "InterpreterSection",
+   "words": 4,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Voice: ",
+   "ko": "음성: ",
+   "zh": "語音：",
+   "section": "InterpreterSection",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "No Taiwan voice on this device, so another Chinese voice is reading: ",
+   "ko": "이 기기에 대만 목소리가 없어 다른 중국어 목소리로 읽습니다: ",
+   "zh": "此裝置沒有台灣語音，改用其他中文語音：",
+   "section": "InterpreterSection",
+   "words": 12,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "device default",
+   "ko": "기기 기본",
+   "zh": "裝置預設",
    "section": "InterpreterSection",
    "words": 2,
    "tier": 1,
