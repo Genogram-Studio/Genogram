@@ -1,7 +1,9 @@
-/* 음성 출력 — POST { text, lang, speed? } → audio/mpeg
-   품질 우선: gpt-4o-mini-tts(말투·억양을 지시문으로 조절할 수 있는 가장 새 모델)와,
-   OpenAI가 최고 품질로 권하는 marin 음성을 쓴다. 쓸 수 없으면 차례로 내려간다.
-   환경변수: OPENAI_API_KEY(필수) · OPENAI_TTS_MODEL · OPENAI_TTS_VOICE 
+/* 음성 출력 — POST { text, lang, speed?, zh? } → audio/mpeg
+   · 중국어(zh) + zh:"tw"(기본): ElevenLabs의 대만 목소리만 쓴다. 실패하면 다른 억양으로 바꾸지 않고 오류를 돌려준다.
+   · 중국어(zh) + zh:"cn": OpenAI로 북경 표준어(普通話) 발음.
+   · 나머지 언어: OpenAI.
+   환경변수: OPENAI_API_KEY(필수) · OPENAI_TTS_MODEL · OPENAI_TTS_VOICE
+             ELEVENLABS_API_KEY(대만 음성 필수) · ELEVENLABS_TAIWAN_VOICE_ID · ELEVENLABS_MODEL
    USER_ACCOUNTS가 설정되어 있으면 OPENAI_API_KEY 대신 사용자 계정별 키를 쓴다(_util.resolveAccount).  */
 const { json, parseBody, resolveAccount } = require("./_util");
 
@@ -11,12 +13,40 @@ const VOICE = process.env.OPENAI_TTS_VOICE || "marin";
 /* 언어마다 어떻게 읽을지 지시한다. 상담 자리이므로 차분하고 또렷하게. */
 const STYLE = {
   en: "Speak in clear, natural English with a calm, warm and steady pace, as a counselor speaking to a client.",
-  zh: "請用自然、清晰的台灣華語（國語）朗讀，語氣溫和、語速平穩，像諮商師對案主說話。",
+  zh: "請用標準的北京普通話朗讀（大陸標準發音、清楚的捲舌音與兒化），語氣溫和、語速平穩，像諮商師對案主說話。",
   ko: "차분하고 따뜻하며 또렷한 한국어로, 상담자가 내담자에게 말하듯 일정한 속도로 읽어 주세요.",
   th: "Speak clearly and calmly in natural Thai, with a warm, steady pace suitable for a counseling session.",
   km: "Speak clearly and calmly in natural Khmer, with a warm, steady pace suitable for a counseling session.",
   fr: "Parlez en français naturel, clairement et avec calme, sur un ton chaleureux adapté à un entretien de conseil.",
 };
+
+const TW_VOICE = (process.env.ELEVENLABS_TAIWAN_VOICE_ID || "").trim() || "DSyEP4HEaCKur8rFFOri";
+/* flash는 첫 소리까지 가장 빠른 모델이다. 억양은 목소리가 정하므로 대만 목소리를 그대로 유지한다. */
+const EL_MODEL = (process.env.ELEVENLABS_MODEL || "").trim() || "eleven_flash_v2_5";
+
+async function taiwanVoice(text, speed) {
+  const key = (process.env.ELEVENLABS_API_KEY || "").trim();
+  if (!key) return json(503, { error: "ELEVENLABS_API_KEY is not set", reason: "missing_key" });
+  try {
+    const resp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(TW_VOICE)}?output_format=mp3_44100_64`, {
+      method: "POST",
+      headers: { "xi-api-key": key, "Content-Type": "application/json", Accept: "audio/mpeg" },
+      body: JSON.stringify({ text, model_id: EL_MODEL, language_code: "zh", voice_settings: { stability: 0.5, similarity_boost: 0.8, speed: Math.min(1.2, Math.max(0.7, speed)) } }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const type = (resp.headers.get("content-type") || "").toLowerCase();
+    if (!resp.ok || !type.startsWith("audio/")) {
+      console.error("ElevenLabs", resp.status);
+      await resp.body?.cancel();
+      return json(502, { error: "elevenlabs failed", reason: resp.ok ? "invalid_audio" : `http_${resp.status}` });
+    }
+    const buf = Buffer.from(await resp.arrayBuffer());
+    if (!buf.length) return json(502, { error: "elevenlabs failed", reason: "empty_audio" });
+    return { statusCode: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-Voice-Provider": "elevenlabs-tw" }, body: buf.toString("base64"), isBase64Encoded: true };
+  } catch (e) {
+    return json(502, { error: "elevenlabs failed", reason: e.name === "TimeoutError" || e.name === "AbortError" ? "timeout" : "network" });
+  }
+}
 
 async function speak(key, body) {
   const ctl = new AbortController();
@@ -35,7 +65,7 @@ exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return json(405, { error: "POST only" });
 
   const req = parseBody(event);
-  if (req && req.warm === true) return json(200, { warm: true });     // 예열 — OpenAI를 부르지 않는다
+  if (req && req.warm === true) return json(200, { warm: true });     // 예열 — 유료 API를 부르지 않는다
   const acc = resolveAccount(event, "openai");
   if (acc.error) return acc.error;
   const key = acc.openaiKey;
@@ -44,12 +74,15 @@ exports.handler = async (event) => {
   const lang = req && STYLE[req.lang] ? req.lang : "en";
   const speed = req && Number(req.speed) >= 0.5 && Number(req.speed) <= 1.5 ? Number(req.speed) : 1;
   const input = text.slice(0, 4000);
+  if (lang === "zh" && req.zh !== "cn") return taiwanVoice(input, speed);
 
-  /* 1) 최고 품질  2) 음성이 안 맞으면 다른 음성  3) 모델을 쓸 수 없으면 tts-1-hd */
+  /* 1) 최고 품질  2) 음성이 안 맞으면 다른 음성  3) 모델을 쓸 수 없으면 tts-1-hd.
+     tts-1-hd는 발음 지시를 따르지 않으므로 중국어에는 쓰지 않는다. */
+  const model = lang === "zh" && !/^gpt-4o-mini-tts/.test(MODEL) ? "gpt-4o-mini-tts" : MODEL;
   const tries = [
-    { model: MODEL, voice: VOICE, instructions: STYLE[lang] },
-    { model: MODEL, voice: "coral", instructions: STYLE[lang] },
-    { model: "tts-1-hd", voice: "nova" },
+    { model, voice: VOICE, instructions: STYLE[lang] },
+    { model, voice: "coral", instructions: STYLE[lang] },
+    ...(lang === "zh" ? [] : [{ model: "tts-1-hd", voice: "nova" }]),
   ];
   let status = 0;
   try {
@@ -57,7 +90,7 @@ exports.handler = async (event) => {
       const resp = await speak(key, { ...t, input, speed, response_format: "mp3" });
       if (resp.ok) {
         const buf = Buffer.from(await resp.arrayBuffer());
-        return { statusCode: 200, headers: { "Content-Type": "audio/mpeg", "X-TTS-Model": t.model }, body: buf.toString("base64"), isBase64Encoded: true };
+        return { statusCode: 200, headers: { "Content-Type": "audio/mpeg", "X-TTS-Model": t.model, "X-Voice-Provider": lang === "zh" ? "openai-cn" : "openai" }, body: buf.toString("base64"), isBase64Encoded: true };
       }
       status = resp.status;
       const err = await resp.text().catch(() => "");

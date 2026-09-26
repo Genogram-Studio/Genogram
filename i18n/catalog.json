@@ -1,6 +1,6 @@
 {
  "generatedFrom": "src/App.jsx",
- "count": 1019,
+ "count": 1016,
  "items": [
   {
    "en": "Genogram Studio",
@@ -220,7 +220,7 @@
    "words": 2,
    "tier": 1,
    "uses": 1,
-   "ambiguous": true
+   "ambiguous": false
   },
   {
    "en": "Quick to reopen from the home screen. Stays only in this browser.",
@@ -8443,31 +8443,111 @@
    "ambiguous": false
   },
   {
-   "en": "Taiwan",
-   "ko": "대만",
-   "zh": "台灣",
-   "section": "ZH_REGION",
-   "words": 1,
-   "tier": 1,
-   "uses": 2,
-   "ambiguous": false
-  },
-  {
-   "en": "Beijing",
-   "ko": "북경어",
-   "zh": "北京",
-   "section": "ZH_REGION",
-   "words": 1,
+   "en": "Chinese voice",
+   "ko": "중국어 발음",
+   "zh": "中文發音",
+   "section": "ZhVoiceSelect",
+   "words": 2,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
   },
   {
-   "en": "Hong Kong",
-   "ko": "홍콩",
-   "zh": "香港",
-   "section": "ZH_REGION",
+   "en": "Taiwan (ElevenLabs)",
+   "ko": "대만 (ElevenLabs)",
+   "zh": "台灣 (ElevenLabs)",
+   "section": "ZhVoiceSelect",
    "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Beijing (OpenAI)",
+   "ko": "북경 (OpenAI)",
+   "zh": "北京 (OpenAI)",
+   "section": "ZhVoiceSelect",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Taiwan voice is not connected: ELEVENLABS_API_KEY is not set on the server.",
+   "ko": "대만 음성이 연결되지 않았습니다: 서버에 ELEVENLABS_API_KEY가 없습니다.",
+   "zh": "台灣語音未連線：伺服器未設定 ELEVENLABS_API_KEY。",
+   "section": "VoiceStatus",
+   "words": 12,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Could not load the Taiwan voice. Check the ElevenLabs key, voice access and balance.",
+   "ko": "대만 음성을 불러오지 못했습니다. ElevenLabs 키·목소리 권한·잔액을 확인해 주세요.",
+   "zh": "無法載入台灣語音，請確認 ElevenLabs 金鑰、語音權限與餘額。",
+   "section": "VoiceStatus",
+   "words": 14,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Could not load the Beijing voice.",
+   "ko": "북경 음성을 불러오지 못했습니다.",
+   "zh": "無法載入北京語音。",
+   "section": "VoiceStatus",
+   "words": 6,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "It did not switch to another voice.",
+   "ko": "다른 목소리로 바꿔 읽지 않았습니다.",
+   "zh": "未改用其他語音。",
+   "section": "VoiceStatus",
+   "words": 7,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Taiwan Mandarin · ElevenLabs",
+   "ko": "대만 중국어 · ElevenLabs",
+   "zh": "台灣華語 · ElevenLabs",
+   "section": "VoiceStatus",
+   "words": 4,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Beijing Mandarin · OpenAI",
+   "ko": "북경 중국어 · OpenAI",
+   "zh": "北京普通話 · OpenAI",
+   "section": "VoiceStatus",
+   "words": 4,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Device voice (server voice unavailable)",
+   "ko": "기기 음성 (서버 음성 실패)",
+   "zh": "裝置語音（伺服器語音失敗）",
+   "section": "VoiceStatus",
+   "words": 5,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Voice: ",
+   "ko": "음성: ",
+   "zh": "語音：",
+   "section": "VoiceStatus",
+   "words": 1,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
@@ -8853,36 +8933,6 @@
    "ambiguous": false
   },
   {
-   "en": "voice",
-   "ko": "목소리",
-   "zh": "語音",
-   "section": "VoiceChoices",
-   "words": 1,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Device default",
-   "ko": "기기 기본 목소리",
-   "zh": "裝置預設",
-   "section": "VoiceChoices",
-   "words": 2,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Preview",
-   "ko": "미리 듣기",
-   "zh": "試聽",
-   "section": "VoiceChoices",
-   "words": 1,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
    "en": "Interpreter",
    "ko": "통역",
    "zh": "口譯",
@@ -9211,36 +9261,6 @@
    "tier": 1,
    "uses": 1,
    "ambiguous": false
-  },
-  {
-   "en": "Voice",
-   "ko": "음성",
-   "zh": "語音",
-   "section": "TranslateDock",
-   "words": 1,
-   "tier": 1,
-   "uses": 2,
-   "ambiguous": false
-  },
-  {
-   "en": "High quality (OpenAI)",
-   "ko": "고품질 (OpenAI)",
-   "zh": "高品質 (OpenAI)",
-   "section": "TranslateDock",
-   "words": 3,
-   "tier": 1,
-   "uses": 2,
-   "ambiguous": false
-  },
-  {
-   "en": "This device",
-   "ko": "기기 음성",
-   "zh": "裝置語音",
-   "section": "TranslateDock",
-   "words": 2,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": true
   },
   {
    "en": "Speed",
@@ -9643,46 +9663,6 @@
    "ambiguous": false
   },
   {
-   "en": "Voice: OpenAI, Taiwan Mandarin",
-   "ko": "음성: OpenAI · 대만 화어로 읽도록 지시",
-   "zh": "語音：OpenAI・台灣華語",
-   "section": "InterpreterSection",
-   "words": 4,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Voice: ",
-   "ko": "음성: ",
-   "zh": "語音：",
-   "section": "InterpreterSection",
-   "words": 1,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "No Taiwan voice on this device, so another Chinese voice is reading: ",
-   "ko": "이 기기에 대만 목소리가 없어 다른 중국어 목소리로 읽습니다: ",
-   "zh": "此裝置沒有台灣語音，改用其他中文語音：",
-   "section": "InterpreterSection",
-   "words": 12,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "device default",
-   "ko": "기기 기본",
-   "zh": "裝置預設",
-   "section": "InterpreterSection",
-   "words": 2,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
    "en": "Counsellor",
    "ko": "상담사",
    "zh": "諮商師",
@@ -9718,16 +9698,6 @@
    "zh": "口譯語音設定",
    "section": "InterpreterSection",
    "words": 2,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Device",
-   "ko": "기기 음성",
-   "zh": "裝置語音",
-   "section": "InterpreterSection",
-   "words": 1,
    "tier": 1,
    "uses": 1,
    "ambiguous": false

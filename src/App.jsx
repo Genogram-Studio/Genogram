@@ -6569,7 +6569,8 @@ async function changeUserCode() {
 const TIER_KEY = "gs:tier";
 const getTier = () => { try { const v = localStorage.getItem(TIER_KEY); return v === "auto" || v === "std" || v === "pro" ? v : "pro"; } catch { return "pro"; } };
 const setTierPref = (v) => { try { localStorage.setItem(TIER_KEY, v); } catch {} };
-const effTier = (use, pref = getTier()) => (pref === "auto" ? (use === "field" ? "pro" : "std") : pref);
+/* 통역은 기다림이 가장 큰 문제라 번역 창의 품질 선택과 상관없이 늘 빠른 등급을 쓴다 */
+const effTier = (use, pref = getTier()) => (use === "interp" ? "std" : pref === "auto" ? (use === "field" ? "pro" : "std") : pref);
 
 /* 내 용어집 — ⚙에 '한국어 = 영어 = 中文' 한 줄씩. 비운 언어가 있어도 된다(둘 이상 있으면 됨). */
 const GLOSS_KEY = "gs:glossary";
@@ -6605,7 +6606,7 @@ async function gptTranslateRaw(text, fromLabel, toLabel, ctx = "", opts = {}) {
   const resp = await aiFetch("/.netlify/functions/gpt-translate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, from: fromLabel, to: toLabel, context: ctx, tier, ...(gl.length ? { glossary: gl } : {}) }),
+    body: JSON.stringify({ text, from: fromLabel, to: toLabel, context: ctx, tier, ...(opts.use === "interp" ? { live: true } : {}), ...(gl.length ? { glossary: gl } : {}) }),
   });
   if (!resp.ok) throw new Error("gpt-translate " + resp.status);
   const data = await resp.json();
@@ -6683,41 +6684,50 @@ const ENDS_SENTENCE = /[.!?…。！？]["')\]」』”’]*$/;
 const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
 const BCP47 = { ko: "ko-KR", zh: "zh-TW", en: "en-US", th: "th-TH", km: "km-KH", fr: "fr-FR" };
 const voiceTag = (v) => String(v?.lang || "").replace("_", "-").toLowerCase();
-/* 기기에 대만 목소리가 없으면 브라우저가 zh-TW 요청을 북경어 목소리로 읽기도 하므로, 목소리를 직접 골라 넘긴다 */
-function pickDeviceVoice(lang, chosenURI) {
+function pickDeviceVoice(lang) {
   const all = (typeof window !== "undefined" && window.speechSynthesis) ? window.speechSynthesis.getVoices() : [];
-  const chosen = chosenURI && all.find((v) => v.voiceURI === chosenURI);
-  if (chosen) return chosen;
   const want = (BCP47[lang] || "").toLowerCase();
   return all.find((v) => voiceTag(v) === want) || null;
 }
-const ZH_REGION = { "zh-tw": ["Taiwan", "대만", "台灣"], "zh-cn": ["Beijing", "북경어", "北京"], "zh-hk": ["Hong Kong", "홍콩", "香港"] };
+/* 중국어 발음 — 번역 창과 통역 창이 함께 쓰는 하나의 설정. tw: 대만(ElevenLabs) · cn: 북경(OpenAI) */
+const ZH_KEY = "gs:zh-voice";
+const getZhVoice = () => { try { return localStorage.getItem(ZH_KEY) === "cn" ? "cn" : "tw"; } catch { return "tw"; } };
+function setZhVoice(v) { try { localStorage.setItem(ZH_KEY, v); } catch {} window.dispatchEvent(new Event("gs-zh-voice")); }
+function useZhVoice() {
+  const [v, setV] = useState(getZhVoice);
+  useEffect(() => {
+    const f = () => setV(getZhVoice());
+    window.addEventListener("gs-zh-voice", f); window.addEventListener("storage", f);
+    return () => { window.removeEventListener("gs-zh-voice", f); window.removeEventListener("storage", f); };
+  }, []);
+  return [v, setZhVoice];
+}
 const Speaker = /*#__PURE__*/ (() => {
   let el = null, unlocked = false, playing = false, token = 0, resolveCur = null;
   let queue = [];
   let phase = "idle";
-  let opts = { engine: "openai", speed: 1 };
+  let opts = { speed: 1 };
   const subs = new Set();
-  let voiceInfo = null;
-  const emit = () => { const st = { playing, phase, pending: queue.length + (playing ? 1 : 0), voice: voiceInfo }; subs.forEach((f) => f(st)); };
+  let voiceInfo = null, error = null;
+  const emit = () => { const st = { playing, phase, pending: queue.length + (playing ? 1 : 0), voice: voiceInfo, error }; subs.forEach((f) => f(st)); };
   const audioEl = () => { if (!el) { el = new Audio(); el.preload = "auto"; } return el; };
-  const fetchAudio = async (text, lang, settings) => {
+  const fetchAudio = async (text, lang, zh, settings) => {
     try {
       const resp = await aiFetch("/.netlify/functions/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, lang, speed: settings.speed }),
+        body: JSON.stringify({ text, lang, speed: settings.speed, ...(lang === "zh" ? { zh } : {}) }),
       });
-      if (!resp.ok) return null;
-      return URL.createObjectURL(await resp.blob());
-    } catch { return null; }
+      if (!resp.ok) { let reason = `http_${resp.status}`; try { reason = (await resp.json()).reason || reason; } catch {} return { reason }; }
+      return { url: URL.createObjectURL(await resp.blob()), provider: resp.headers.get("X-Voice-Provider") || "" };
+    } catch { return { reason: "network" }; }
   };
   const deviceSay = (text, lang, settings) => new Promise((resolve) => {
     try {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = BCP47[lang] || "en-US"; u.rate = settings.speed;
-      const voice = pickDeviceVoice(lang, settings.voices?.[lang]);
+      const voice = pickDeviceVoice(lang);
       if (voice) u.voice = voice;
-      voiceInfo = { engine: "device", lang, name: voice ? voice.name : "", tag: voice ? voiceTag(voice) : "" }; emit();
+      voiceInfo = { lang, provider: "device" }; emit();
       u.onend = u.onerror = () => resolve();
       resolveCur = resolve;
       window.speechSynthesis.speak(u);
@@ -6731,19 +6741,19 @@ const Speaker = /*#__PURE__*/ (() => {
     a.src = url;
     try { const p = a.play(); if (p && p.catch) p.catch(fin); } catch { fin(); }
   });
+  const dropQueue = () => { queue.forEach((j) => j.audio.then((r) => r?.url && URL.revokeObjectURL(r.url))); queue = []; };
   const pump = async () => {
     if (playing) return;
     const job = queue.shift();
     if (!job) { phase = "idle"; emit(); return; }
-    playing = true; phase = job.settings.engine === "device" ? "playing" : "preparing"; const my = token; emit();
+    playing = true; phase = "preparing"; const my = token; emit();
     try {
-      if (job.settings.engine === "device") await deviceSay(job.text, job.lang, job.settings);
-      else {
-        const url = await job.audio;
-        if (my !== token) { if (url) URL.revokeObjectURL(url); }
-        else if (url) { voiceInfo = { engine: "openai", lang: job.lang, name: "OpenAI", tag: job.lang === "zh" ? "zh-tw" : "" }; phase = "playing"; emit(); await playUrl(url); URL.revokeObjectURL(url); }
-        else { phase = "playing"; emit(); await deviceSay(job.text, job.lang, job.settings); }
-      }
+      const res = await job.audio;
+      if (my !== token) { if (res?.url) URL.revokeObjectURL(res.url); }
+      else if (res?.url) { voiceInfo = { lang: job.lang, zh: job.zh, provider: res.provider }; phase = "playing"; emit(); await playUrl(res.url); URL.revokeObjectURL(res.url); }
+      /* 중국어는 다른 억양의 목소리로 대신 읽지 않는다 — 멈추고 까닭을 알린다 */
+      else if (job.lang === "zh") { error = { zh: job.zh, reason: res?.reason || "" }; dropQueue(); }
+      else { phase = "playing"; emit(); await deviceSay(job.text, job.lang, job.settings); }
     } catch {}
     resolveCur = null; playing = false;
     pump();
@@ -6764,14 +6774,15 @@ const Speaker = /*#__PURE__*/ (() => {
       text = String(text || "").trim();
       if (!text) return;
       if (interrupt) this.stop();
+      error = null;
       const snapshot = { ...opts, ...settings };
-      queue.push({ text, lang, settings: snapshot, audio: snapshot.engine === "device" ? null : fetchAudio(text, lang, snapshot) });
+      const zh = getZhVoice();
+      queue.push({ text, lang, zh, settings: snapshot, audio: fetchAudio(text, lang, zh, snapshot) });
       emit(); pump();
     },
     stop() {
       token++;
-      queue.forEach((j) => j.audio && j.audio.then((u) => u && URL.revokeObjectURL(u)));
-      queue = [];
+      dropQueue();
       try { if (el) el.pause(); } catch {}
       try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch {}
       if (resolveCur) resolveCur();
@@ -6780,6 +6791,34 @@ const Speaker = /*#__PURE__*/ (() => {
     subscribe(f) { subs.add(f); return () => subs.delete(f); },
   };
 })();
+/* 중국어 발음 고르기 — 두 창에 같은 것을 둔다 */
+function ZhVoiceSelect({ li, style }) {
+  const [zh, setZh] = useZhVoice();
+  return <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, ...style }}>{tr(["Chinese voice", "중국어 발음", "中文發音"], li)}
+    <select value={zh} onChange={(e) => setZh(e.target.value)} style={{ fontSize: 11 }}>
+      <option value="tw">{tr(["Taiwan (ElevenLabs)", "대만 (ElevenLabs)", "台灣 (ElevenLabs)"], li)}</option>
+      <option value="cn">{tr(["Beijing (OpenAI)", "북경 (OpenAI)", "北京 (OpenAI)"], li)}</option>
+    </select></label>;
+}
+/* 지금 어떤 목소리로 읽는지, 또는 왜 읽지 못했는지 */
+function VoiceStatus({ li, sp }) {
+  const t = (en, ko, zh) => tr([en, ko, zh], li);
+  if (sp.error) {
+    const tw = sp.error.zh !== "cn";
+    const msg = tw && sp.error.reason === "missing_key"
+      ? t("Taiwan voice is not connected: ELEVENLABS_API_KEY is not set on the server.", "대만 음성이 연결되지 않았습니다: 서버에 ELEVENLABS_API_KEY가 없습니다.", "台灣語音未連線：伺服器未設定 ELEVENLABS_API_KEY。")
+      : tw ? t("Could not load the Taiwan voice. Check the ElevenLabs key, voice access and balance.", "대만 음성을 불러오지 못했습니다. ElevenLabs 키·목소리 권한·잔액을 확인해 주세요.", "無法載入台灣語音，請確認 ElevenLabs 金鑰、語音權限與餘額。")
+      : t("Could not load the Beijing voice.", "북경 음성을 불러오지 못했습니다.", "無法載入北京語音。");
+    return <div role="alert" style={{ fontSize: 11, color: T.red, fontFamily: FB }}>{msg} {t("It did not switch to another voice.", "다른 목소리로 바꿔 읽지 않았습니다.", "未改用其他語音。")}{sp.error.reason && sp.error.reason !== "missing_key" ? ` (${sp.error.reason})` : ""}</div>;
+  }
+  if (!sp.playing || sp.phase !== "playing" || !sp.voice) return null;
+  const p = sp.voice.provider;
+  const label = p === "elevenlabs-tw" ? t("Taiwan Mandarin · ElevenLabs", "대만 중국어 · ElevenLabs", "台灣華語 · ElevenLabs")
+    : p === "openai-cn" ? t("Beijing Mandarin · OpenAI", "북경 중국어 · OpenAI", "北京普通話 · OpenAI")
+    : p === "device" ? t("Device voice (server voice unavailable)", "기기 음성 (서버 음성 실패)", "裝置語音（伺服器語音失敗）")
+    : "OpenAI";
+  return <div style={{ fontSize: 11, color: T.mute, fontFamily: FB }}>{t("Voice: ", "음성: ", "語音：")}{label}</div>;
+}
 function useSpeaker() {
   const [st, setSt] = useState({ playing: false, pending: 0 });
   useEffect(() => Speaker.subscribe(setSt), []);
@@ -7556,7 +7595,7 @@ function TransAssist({ li }) {
      읽기를 켜는 조작이 소리 잠금을 풀어 준다.
    · 큰 화면: 맞은편에 앉은 내담자가 읽을 수 있게 번역만 크게. 아래에서 계속 입력할 수 있다. */
 const TRANS_KEY = "gs:trans";
-const TRANS_DEFAULTS = { read: "off", source: "ko", fs: 2, engine: "openai", speed: 1, show: { ko: true, en: true, zh: true, fr: false, th: false, km: false }, secTrans: true, secInterp: false, side: "right" };
+const TRANS_DEFAULTS = { read: "off", source: "ko", fs: 2, speed: 1, show: { ko: true, en: true, zh: true, fr: false, th: false, km: false }, secTrans: true, secInterp: false, side: "right" };
 /* 번역 글씨 크기 단계(px). 기본은 12 — 가계도를 가리지 않도록 작게 두고, 필요할 때 A+로 키운다. 큰 화면은 3단 더 크게. */
 const FS_STEPS = [10, 11, 12, 14, 17, 21, 27, 34];
 const TRANS_PAUSE_MS = 500;      // 쓰던 문장을 이만큼 멈추면 번역한다
@@ -7681,35 +7720,12 @@ function dockDefaultRect(which) {
   const hEach = Math.max(260, Math.floor((vh - top - gap * 3) / 2));
   return which === "translate" ? { x: gap, y: top, w, h: hEach } : { x: gap, y: top + hEach + gap, w, h: Math.max(260, vh - (top + hEach + gap) - gap) };
 }
-const VOICE_SAMPLE = {
-  ko: "안녕하세요. 이야기를 들려주세요.",
-  zh: "您好，請告訴我您的故事。",
-  en: "Hello. Please tell me your story.",
-  fr: "Bonjour. Racontez-moi votre histoire, je vous écoute.",
-  th: "สวัสดี เล่าเรื่องของคุณให้ฟังได้เลย",
-  km: "សួស្តី សូមរៀបរាប់រឿងរបស់អ្នកឱ្យខ្ញុំស្តាប់",
-};
-function VoiceChoices({ cfg, setC, langs, li }) {
-  const [voices, setVoices] = useState([]);
-  useEffect(() => {
-    const synth = window.speechSynthesis; if (!synth) return;
-    const update = () => setVoices(synth.getVoices()); update();
-    synth.addEventListener("voiceschanged", update); return () => synth.removeEventListener("voiceschanged", update);
-  }, []);
-  if (cfg.engine !== "device") return null;
-  return <div style={{ width: "100%", display: "flex", gap: 8, flexWrap: "wrap", fontSize: 12 }}>{[...new Set(langs)].map((lang) => <label key={lang}>
-    {lang.toUpperCase()} <select aria-label={`${lang} ${tr(["voice", "목소리", "語音"], li)}`} value={cfg.voices?.[lang] || ""} onChange={(e) => setC({ voices: { ...cfg.voices, [lang]: e.target.value } })} style={{ maxWidth: 190 }}>
-      <option value="">{tr(["Device default", "기기 기본 목소리", "裝置預設"], li)}</option>
-      {voices.filter((v) => voiceTag(v).startsWith(lang)).sort((a, b) => (voiceTag(b) === "zh-tw") - (voiceTag(a) === "zh-tw")).map((v) => <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang}{ZH_REGION[voiceTag(v)] ? " · " + tr(ZH_REGION[voiceTag(v)], li) : ""})</option>)}
-    </select> <button type="button" onClick={() => speakTTS(VOICE_SAMPLE[lang] || VOICE_SAMPLE.en, lang, cfg)}>{tr(["Preview", "미리 듣기", "試聽"], li)}</button>
-  </label>)}</div>;
-}
 function InterpreterWindow({ li, open, onClose, docked, onToggleDock }) {
   const floating = useFloatingPanel("gs:interpreter-window", dockDefaultRect("interpreter"));
   const [full, setFull] = useState(false), [fold, setFold] = useState(false), [fs, setFs] = useState(3);
-  const [cfg, setCfg] = useState(() => { try { return { engine: "device", speed: 1, autoRead: true, review: true, ...JSON.parse(localStorage.getItem("gs:interpreter-settings") || "{}") }; } catch { return { engine: "device", speed: 1, autoRead: true, review: true }; } });
+  const [cfg, setCfg] = useState(() => { try { return { speed: 1, autoRead: true, review: true, ...JSON.parse(localStorage.getItem("gs:interpreter-settings") || "{}") }; } catch { return { speed: 1, autoRead: true, review: true }; } });
   const setC = (patch) => setCfg((c) => { const next = { ...c, ...patch }; try { localStorage.setItem("gs:interpreter-settings", JSON.stringify(next)); } catch {} return next; });
-  useEffect(() => { if (open) warmUp(["gpt-translate", "whisper", ...(cfg.engine === "openai" ? ["tts"] : [])]); }, [open, cfg.engine]);
+  useEffect(() => { if (open) warmUp(["gpt-translate", "whisper", "tts"]); }, [open]);
   return <div className={`gs-interpreter-window${docked ? " gs-docked" : ""}`} onPointerDownCapture={floating.focus} data-noprint data-notrans style={{ position: "fixed", ...floating.style, ...(full ? { left: 0, top: 0, width: "100vw", height: "100dvh" } : {}), ...(fold ? { height: "auto" } : {}), display: open ? "flex" : "none", flexDirection: "column", background: "white", border: `1px solid ${T.rule}`, borderRadius: 10, boxShadow: "0 4px 18px #16202a38", ...(docked && !full ? dockedWindowStyle : {}) }}>
     <div onPointerDown={full || docked ? undefined : floating.move} style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, padding: 8, cursor: docked ? "default" : "move", touchAction: docked ? "auto" : "none", borderBottom: `1px solid ${T.rule}` }}>
       <DockSwitch docked={docked} onClick={() => { setFull(false); setFold(false); onToggleDock(); }} li={li} />
@@ -7782,9 +7798,9 @@ function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleD
   useEffect(() => {
     if (!open) return;
     const names = ["gpt-translate"];
-    if (cfg.read !== "off" && cfg.engine === "openai") names.push("tts");
+    if (cfg.read !== "off") names.push("tts");
     warmUp(names);
-  }, [open, cfg.read, cfg.engine]);
+  }, [open, cfg.read]);
 
   const tail = "";
   const seq = history;
@@ -7974,6 +7990,7 @@ function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleD
         {(sp.playing || sp.pending > 0) && (
           <button type="button" onClick={() => Speaker.stop()} style={{ ...chip(false), color: T.red, borderColor: T.red }}>■ {t("Stop", "멈춤", "停止")}</button>
         )}
+        <VoiceStatus li={li} sp={sp} />
         <span style={{ flex: 1 }} />
         <button type="button" title={t("Smaller", "작게", "縮小")} onClick={() => setC({ fs: Math.max(0, cfg.fs - 1) })} style={chip(false)}>A−</button>
         <button type="button" title={t("Larger", "크게", "放大")} onClick={() => setC({ fs: Math.min(FS_STEPS.length - 1, cfg.fs + 1) })} style={chip(false)}>A+</button>
@@ -8054,16 +8071,11 @@ function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleD
       {!fold && (
         <details className="gs-trans-settings" open={showSet} onToggle={(e) => setShowSet(e.currentTarget.open)} style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "4px 8px", background: T.paper, borderBottom: `1px solid ${T.rule}`, fontSize: 10.5, fontFamily: FB, color: T.ink2, alignItems: "center", maxHeight: "40%", flexShrink: 0, overflowY: "auto" }}>
           <summary style={{ cursor: "pointer", fontWeight: 700, padding: 5 }}>{t("Reading settings · comparison · glossary", "읽기 설정 · 번역 비교 · 용어집", "朗讀設定 · 翻譯比較 · 詞彙表")}</summary>
-          <label style={{ display: "flex", alignItems: "center", gap: 5 }}>{t("Voice", "음성", "語音")}
-            <select value={cfg.engine} onChange={(e) => setC({ engine: e.target.value })} style={inp}>
-              <option value="openai">{t("High quality (OpenAI)", "고품질 (OpenAI)", "高品質 (OpenAI)")}</option>
-              <option value="device">{t("This device", "기기 음성", "裝置語音")}</option>
-            </select></label>
+          <ZhVoiceSelect li={li} />
           <label style={{ display: "flex", alignItems: "center", gap: 5 }}>{t("Speed", "속도", "速度")}
             <select value={cfg.speed} onChange={(e) => setC({ speed: +e.target.value })} style={inp}>
               <option value={0.85}>{t("Slow", "느리게", "慢")}</option><option value={1}>{t("Normal", "보통", "正常")}</option><option value={1.15}>{t("Fast", "빠르게", "快")}</option>
             </select></label>
-          <VoiceChoices cfg={cfg} setC={setC} langs={FIELD_LANGUAGES.filter((l) => l !== cfg.source)} li={li} />
           <label style={{ display: "flex", alignItems: "center", gap: 5 }}><input type="checkbox" checked={assistOn} className="gs-assist-toggle"
             onChange={(e) => { try { localStorage.setItem("gs:assist", e.target.checked ? "on" : "off"); } catch {} setAssistOn(e.target.checked); window.dispatchEvent(new Event("gs-assist-cfg")); }} />
             {t("Show the 🌐 button in text fields (Alt+Enter always works)", "글칸에 🌐 번역 단추 표시 (Alt+Enter는 늘 됨)", "在文字欄顯示 🌐 按鈕（Alt+Enter 隨時可用）")}</label>
@@ -8302,15 +8314,10 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
           <button type="button" onClick={() => Speaker.stop()} style={{ border: `1px solid ${T.red}`, color: T.red, background: "#fff", borderRadius: 6, padding: "1px 8px", fontSize: 12, cursor: "pointer" }}>■ {t("Stop", "멈춤", "停止")}</button>
         )}
       </div>
-      {playback.playing && playback.voice?.lang === "zh" && (
-        <div style={{ fontSize: 11, color: playback.voice.tag === "zh-tw" ? T.mute : T.red, fontFamily: FB }}>
-          {playback.voice.engine === "openai"
-            ? t("Voice: OpenAI, Taiwan Mandarin", "음성: OpenAI · 대만 화어로 읽도록 지시", "語音：OpenAI・台灣華語")
-            : playback.voice.tag === "zh-tw"
-              ? t("Voice: ", "음성: ", "語音：") + playback.voice.name + " (" + t("Taiwan", "대만", "台灣") + ")"
-              : t("No Taiwan voice on this device, so another Chinese voice is reading: ", "이 기기에 대만 목소리가 없어 다른 중국어 목소리로 읽습니다: ", "此裝置沒有台灣語音，改用其他中文語音：") + (playback.voice.name || t("device default", "기기 기본", "裝置預設"))}
-        </div>
-      )}
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+        <ZhVoiceSelect li={li} />
+        <VoiceStatus li={li} sp={playback} />
+      </div>
       <div style={{ display: "flex", flex: 1, gap: 12, flexWrap: "wrap" }}>
         {renderSide({ who: "me", name: tr(["Counsellor", "상담사", "諮商師"], li), lang: myLang, setLang: setMyLang, spoken: myText, translated: myTrans, onSend: () => sendText("me") })}
         {renderSide({ who: "them", name: tr(["Client", "내담자", "來訪者"], li), lang: theirLang, setLang: setTheirLang, spoken: theirText, translated: theirTrans, onSend: () => sendText("them") })}
@@ -8320,12 +8327,10 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
       </div>
       <details style={{ flexShrink: 0, padding: 8, borderTop: `1px solid ${T.rule}` }}><summary style={{ cursor: "pointer" }}>{t("Voice settings", "통역 음성 설정", "口譯語音設定")}</summary>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 8, fontSize: 12 }}>
-          <label>{t("Voice", "음성", "語音")} <select value={cfg.engine} onChange={(e) => setC({ engine: e.target.value })}><option value="device">{t("Device", "기기 음성", "裝置語音")}</option><option value="openai">{t("High quality (OpenAI)", "고품질 (OpenAI)", "高品質 (OpenAI)")}</option></select></label>
           <label>{t("Speed", "속도", "速度")} <select value={cfg.speed} onChange={(e) => setC({ speed: +e.target.value })}><option value={0.85}>0.85×</option><option value={1}>1×</option><option value={1.15}>1.15×</option></select></label>
           <label><input type="checkbox" checked={cfg.autoRead} onChange={(e) => setC({ autoRead: e.target.checked })} />{t("Read after translation", "번역 후 자동 읽기", "翻譯後朗讀")}</label>
           <label><input type="checkbox" checked={cfg.review} onChange={(e) => setC({ review: e.target.checked })} />{t("Review speech before translating", "말한 내용 확인 후 번역", "確認文字後翻譯")}</label>
           <button onClick={() => Speaker.stop()}>{t("Stop audio", "읽기 멈춤", "停止朗讀")}</button>
-          <VoiceChoices cfg={cfg} setC={setC} langs={[LANG_CODE[myLang], LANG_CODE[theirLang]]} li={li} />
           <button onClick={changeUserCode} title={t("Switch to a different user's access code on this device", "이 기기에서 다른 사용자의 접근 코드로 바꿉니다", "在此裝置切換為其他使用者的存取碼")}>{t("Change user code", "사용자 코드 변경", "更換使用者代碼")}</button>
         </div>
       </details>
