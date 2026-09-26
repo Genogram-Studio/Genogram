@@ -6682,13 +6682,24 @@ const ENDS_SENTENCE = /[.!?…。！？]["')\]」』”’]*$/;
    · 서버 음성(고품질)이 안 되면 그 문장만 기기 음성으로 대신 읽는다. */
 const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
 const BCP47 = { ko: "ko-KR", zh: "zh-TW", en: "en-US", th: "th-TH", km: "km-KH", fr: "fr-FR" };
+const voiceTag = (v) => String(v?.lang || "").replace("_", "-").toLowerCase();
+/* 기기에 대만 목소리가 없으면 브라우저가 zh-TW 요청을 북경어 목소리로 읽기도 하므로, 목소리를 직접 골라 넘긴다 */
+function pickDeviceVoice(lang, chosenURI) {
+  const all = (typeof window !== "undefined" && window.speechSynthesis) ? window.speechSynthesis.getVoices() : [];
+  const chosen = chosenURI && all.find((v) => v.voiceURI === chosenURI);
+  if (chosen) return chosen;
+  const want = (BCP47[lang] || "").toLowerCase();
+  return all.find((v) => voiceTag(v) === want) || null;
+}
+const ZH_REGION = { "zh-tw": ["Taiwan", "대만", "台灣"], "zh-cn": ["Beijing", "북경어", "北京"], "zh-hk": ["Hong Kong", "홍콩", "香港"] };
 const Speaker = /*#__PURE__*/ (() => {
   let el = null, unlocked = false, playing = false, token = 0, resolveCur = null;
   let queue = [];
   let phase = "idle";
   let opts = { engine: "openai", speed: 1 };
   const subs = new Set();
-  const emit = () => { const st = { playing, phase, pending: queue.length + (playing ? 1 : 0) }; subs.forEach((f) => f(st)); };
+  let voiceInfo = null;
+  const emit = () => { const st = { playing, phase, pending: queue.length + (playing ? 1 : 0), voice: voiceInfo }; subs.forEach((f) => f(st)); };
   const audioEl = () => { if (!el) { el = new Audio(); el.preload = "auto"; } return el; };
   const fetchAudio = async (text, lang, settings) => {
     try {
@@ -6704,8 +6715,9 @@ const Speaker = /*#__PURE__*/ (() => {
     try {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = BCP47[lang] || "en-US"; u.rate = settings.speed;
-      const voice = window.speechSynthesis.getVoices().find((v) => v.voiceURI === settings.voices?.[lang]);
+      const voice = pickDeviceVoice(lang, settings.voices?.[lang]);
       if (voice) u.voice = voice;
+      voiceInfo = { engine: "device", lang, name: voice ? voice.name : "", tag: voice ? voiceTag(voice) : "" }; emit();
       u.onend = u.onerror = () => resolve();
       resolveCur = resolve;
       window.speechSynthesis.speak(u);
@@ -6729,7 +6741,7 @@ const Speaker = /*#__PURE__*/ (() => {
       else {
         const url = await job.audio;
         if (my !== token) { if (url) URL.revokeObjectURL(url); }
-        else if (url) { phase = "playing"; emit(); await playUrl(url); URL.revokeObjectURL(url); }
+        else if (url) { voiceInfo = { engine: "openai", lang: job.lang, name: "OpenAI", tag: job.lang === "zh" ? "zh-tw" : "" }; phase = "playing"; emit(); await playUrl(url); URL.revokeObjectURL(url); }
         else { phase = "playing"; emit(); await deviceSay(job.text, job.lang, job.settings); }
       }
     } catch {}
@@ -7688,7 +7700,7 @@ function VoiceChoices({ cfg, setC, langs, li }) {
   return <div style={{ width: "100%", display: "flex", gap: 8, flexWrap: "wrap", fontSize: 12 }}>{[...new Set(langs)].map((lang) => <label key={lang}>
     {lang.toUpperCase()} <select aria-label={`${lang} ${tr(["voice", "목소리", "語音"], li)}`} value={cfg.voices?.[lang] || ""} onChange={(e) => setC({ voices: { ...cfg.voices, [lang]: e.target.value } })} style={{ maxWidth: 190 }}>
       <option value="">{tr(["Device default", "기기 기본 목소리", "裝置預設"], li)}</option>
-      {voices.filter((v) => v.lang.toLowerCase().startsWith(lang)).map((v) => <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>)}
+      {voices.filter((v) => voiceTag(v).startsWith(lang)).sort((a, b) => (voiceTag(b) === "zh-tw") - (voiceTag(a) === "zh-tw")).map((v) => <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang}{ZH_REGION[voiceTag(v)] ? " · " + tr(ZH_REGION[voiceTag(v)], li) : ""})</option>)}
     </select> <button type="button" onClick={() => speakTTS(VOICE_SAMPLE[lang] || VOICE_SAMPLE.en, lang, cfg)}>{tr(["Preview", "미리 듣기", "試聽"], li)}</button>
   </label>)}</div>;
 }
@@ -8286,7 +8298,19 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
       <div style={{ display: "flex", alignItems: "center", marginBottom: 3, gap: 6 }}>
         <span style={{ flex: 1, fontFamily: FD, fontSize: 11.5, fontWeight: 600, color: T.ink }}>🎤 {tr(["Interpreter", "통역", "口譯"], li)}</span>
         <span role="status" style={{ fontSize: 12, color: T.mute }}>{status || (playback.playing ? (playback.phase === "preparing" ? t("Preparing audio…", "음성 준비 중…", "準備語音中…") : t("Playing audio…", "재생 중…", "播放中…")) : "")}</span>
+        {(playback.playing || playback.pending > 0) && (
+          <button type="button" onClick={() => Speaker.stop()} style={{ border: `1px solid ${T.red}`, color: T.red, background: "#fff", borderRadius: 6, padding: "1px 8px", fontSize: 12, cursor: "pointer" }}>■ {t("Stop", "멈춤", "停止")}</button>
+        )}
       </div>
+      {playback.playing && playback.voice?.lang === "zh" && (
+        <div style={{ fontSize: 11, color: playback.voice.tag === "zh-tw" ? T.mute : T.red, fontFamily: FB }}>
+          {playback.voice.engine === "openai"
+            ? t("Voice: OpenAI, Taiwan Mandarin", "음성: OpenAI · 대만 화어로 읽도록 지시", "語音：OpenAI・台灣華語")
+            : playback.voice.tag === "zh-tw"
+              ? t("Voice: ", "음성: ", "語音：") + playback.voice.name + " (" + t("Taiwan", "대만", "台灣") + ")"
+              : t("No Taiwan voice on this device, so another Chinese voice is reading: ", "이 기기에 대만 목소리가 없어 다른 중국어 목소리로 읽습니다: ", "此裝置沒有台灣語音，改用其他中文語音：") + (playback.voice.name || t("device default", "기기 기본", "裝置預設"))}
+        </div>
+      )}
       <div style={{ display: "flex", flex: 1, gap: 12, flexWrap: "wrap" }}>
         {renderSide({ who: "me", name: tr(["Counsellor", "상담사", "諮商師"], li), lang: myLang, setLang: setMyLang, spoken: myText, translated: myTrans, onSend: () => sendText("me") })}
         {renderSide({ who: "them", name: tr(["Client", "내담자", "來訪者"], li), lang: theirLang, setLang: setTheirLang, spoken: theirText, translated: theirTrans, onSend: () => sendText("them") })}
