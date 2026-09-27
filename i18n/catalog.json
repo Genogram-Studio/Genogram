@@ -1,6 +1,6 @@
 {
  "generatedFrom": "src/App.jsx",
- "count": 1034,
+ "count": 1037,
  "items": [
   {
    "en": "Genogram Studio",
@@ -8638,6 +8638,36 @@
    "zh": "語音：",
    "section": "VoiceStatus",
    "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "The translation server function is not deployed (the site returned a web page).",
+   "ko": "번역 서버 함수가 배포되지 않았습니다(함수 대신 웹페이지가 응답). Netlify의 Functions 설정을 확인해 주세요.",
+   "zh": "翻譯伺服器函式未部署（回應為網頁）。",
+   "section": "aiErrorText",
+   "words": 13,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "The server returned an empty translation.",
+   "ko": "서버가 빈 번역을 돌려주었습니다.",
+   "zh": "伺服器回傳空白翻譯。",
+   "section": "aiErrorText",
+   "words": 6,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Unexpected error: ",
+   "ko": "예상하지 못한 오류: ",
+   "zh": "未預期的錯誤：",
+   "section": "aiErrorText",
+   "words": 2,
    "tier": 1,
    "uses": 1,
    "ambiguous": false

@@ -6534,7 +6534,9 @@ async function aiFetch(url, init = {}) {
   const send = () => {
     let code = "";
     try { code = localStorage.getItem("gs:code") || ""; } catch {}
-    return fetch(url, { ...init, headers: { ...(init.headers || {}), ...(code ? { "x-access-code": code } : {}) } });
+    /* 머리글에는 영문 밖 글자(한글 등)를 실을 수 없어서, 그런 코드는 인코딩해 따로 보낸다 */
+    const head = !code ? {} : /^[\x20-\x7e]*$/.test(code) ? { "x-access-code": code } : { "x-access-code-enc": encodeURIComponent(code) };
+    return fetch(url, { ...init, headers: { ...(init.headers || {}), ...head } });
   };
   let resp = await send();
   if (resp.status !== 401) return resp;
@@ -6600,6 +6602,10 @@ const GPT_LANG = ["한국어", "繁體中文", "English", "ภาษาไทย
 /* 번역 한 번. 실패하면 예외를 던진다 — 원문이 영어·중국어 칸에 들어가 버리지 않게 화면이 '실패'로 알린다.
    opts.use: "strip" | "interp" | "field"(자동 등급 판단용) · opts.tier: 등급을 직접 지정 · opts.silent: 시간 표시 안 함 */
 async function gptTranslateRaw(text, fromLabel, toLabel, ctx = "", opts = {}) {
+  try { return await gptTranslateCall(text, fromLabel, toLabel, ctx, opts); }
+  catch (e) { if (e && e.status == null && !(e instanceof TypeError)) { e.status = 0; e.msg = e.msg || String(e.message || e); } throw e; }
+}
+async function gptTranslateCall(text, fromLabel, toLabel, ctx = "", opts = {}) {
   const tier = opts.tier || effTier(opts.use || "strip");
   const gl = getUserGlossary();
   const t0 = nowMs();
@@ -6609,8 +6615,10 @@ async function gptTranslateRaw(text, fromLabel, toLabel, ctx = "", opts = {}) {
     body: JSON.stringify({ text, from: fromLabel, to: toLabel, context: ctx, tier, ...(opts.use === "interp" ? { live: true } : {}), ...(gl.length ? { glossary: gl } : {}) }),
   });
   if (!resp.ok) { let msg = ""; try { msg = (await resp.json()).error || ""; } catch {} const e = new Error("gpt-translate " + resp.status); e.status = resp.status; e.msg = msg; throw e; }
+  const type = resp.headers.get("content-type") || "";
+  if (!type.includes("json")) { const e = new Error("gpt-translate: not json"); e.status = resp.status; e.msg = "not_json"; throw e; }
   const data = await resp.json();
-  if (!data.result) throw new Error("gpt-translate: empty result");
+  if (!data.result) { const e = new Error("gpt-translate: empty result"); e.status = resp.status; e.msg = "empty_result"; throw e; }
   const meta = { ms: Math.round(nowMs() - t0), sms: data.ms, model: data.model || "", tier: data.tier || tier, fast: !!data.fast };
   if (!opts.silent) reportMeta(meta);
   return { text: data.result, ...meta };
@@ -6862,7 +6870,10 @@ function speakTTS(text, langCode, settings = {}) { Speaker.unlock(); Speaker.say
 function aiErrorText(err, li) {
   const t = (en, ko, zh) => tr([en, ko, zh], li);
   const st = err && err.status, msg = String((err && err.msg) || "");
-  if (!st) return t("Cannot reach the server (network).", "서버에 연결할 수 없습니다(네트워크).", "無法連線到伺服器（網路）。");
+  if (msg === "not_json") return t("The translation server function is not deployed (the site returned a web page).", "번역 서버 함수가 배포되지 않았습니다(함수 대신 웹페이지가 응답). Netlify의 Functions 설정을 확인해 주세요.", "翻譯伺服器函式未部署（回應為網頁）。");
+  if (msg === "empty_result") return t("The server returned an empty translation.", "서버가 빈 번역을 돌려주었습니다.", "伺服器回傳空白翻譯。");
+  if (st === 0) return t("Unexpected error: ", "예상하지 못한 오류: ", "未預期的錯誤：") + msg;
+  if (!st) return t("Cannot reach the server (network).", "서버에 연결할 수 없습니다(네트워크).", "無法連線到伺服器（網路）。") + (err && err.message ? ` [${err.message}]` : "");
   if (st === 404) return t("Server function not found — is this the full (interpreter) deploy?", "서버 함수가 없습니다 — 통역판(full)으로 배포됐는지 확인해 주세요.", "找不到伺服器函式，請確認是否為口譯版部署。");
   if (st === 401) return t("Access code is wrong or missing.", "접근 코드가 틀렸거나 없습니다.", "存取碼錯誤或未輸入。");
   if (/OPENAI_API_KEY is not set/.test(msg)) return t("OPENAI_API_KEY is not set on the server.", "서버에 OPENAI_API_KEY가 설정되지 않았습니다.", "伺服器未設定 OPENAI_API_KEY。");

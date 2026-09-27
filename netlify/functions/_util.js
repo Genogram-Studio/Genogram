@@ -17,6 +17,9 @@ const timingSafeEq = (a, b) => {
 };
 const codeOf = (event) => {
   const h = event.headers || {};
+  /* 한글 등 영문 밖 글자는 머리글에 그대로 실을 수 없어 앱이 인코딩해 따로 보낸다 */
+  const enc = h["x-access-code-enc"] || h["X-Access-Code-Enc"];
+  if (enc) { try { return decodeURIComponent(String(enc)); } catch { return ""; } }
   return String(h["x-access-code"] || h["X-Access-Code"] || "");
 };
 
