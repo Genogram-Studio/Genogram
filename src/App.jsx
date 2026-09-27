@@ -6534,7 +6534,9 @@ async function aiFetch(url, init = {}) {
   const send = () => {
     let code = "";
     try { code = localStorage.getItem("gs:code") || ""; } catch {}
-    return fetch(url, { ...init, headers: { ...(init.headers || {}), ...(code ? { "x-access-code": code } : {}) } });
+    /* 머리글에는 영문 밖 글자(한글 등)를 실을 수 없어서, 그런 코드는 인코딩해 따로 보낸다 */
+    const head = !code ? {} : /^[\x20-\x7e]*$/.test(code) ? { "x-access-code": code } : { "x-access-code-enc": encodeURIComponent(code) };
+    return fetch(url, { ...init, headers: { ...(init.headers || {}), ...head } });
   };
   let resp = await send();
   if (resp.status !== 401) return resp;
@@ -6871,7 +6873,7 @@ function aiErrorText(err, li) {
   if (msg === "not_json") return t("The translation server function is not deployed (the site returned a web page).", "번역 서버 함수가 배포되지 않았습니다(함수 대신 웹페이지가 응답). Netlify의 Functions 설정을 확인해 주세요.", "翻譯伺服器函式未部署（回應為網頁）。");
   if (msg === "empty_result") return t("The server returned an empty translation.", "서버가 빈 번역을 돌려주었습니다.", "伺服器回傳空白翻譯。");
   if (st === 0) return t("Unexpected error: ", "예상하지 못한 오류: ", "未預期的錯誤：") + msg;
-  if (!st) return t("Cannot reach the server (network).", "서버에 연결할 수 없습니다(네트워크).", "無法連線到伺服器（網路）。");
+  if (!st) return t("Cannot reach the server (network).", "서버에 연결할 수 없습니다(네트워크).", "無法連線到伺服器（網路）。") + (err && err.message ? ` [${err.message}]` : "");
   if (st === 404) return t("Server function not found — is this the full (interpreter) deploy?", "서버 함수가 없습니다 — 통역판(full)으로 배포됐는지 확인해 주세요.", "找不到伺服器函式，請確認是否為口譯版部署。");
   if (st === 401) return t("Access code is wrong or missing.", "접근 코드가 틀렸거나 없습니다.", "存取碼錯誤或未輸入。");
   if (/OPENAI_API_KEY is not set/.test(msg)) return t("OPENAI_API_KEY is not set on the server.", "서버에 OPENAI_API_KEY가 설정되지 않았습니다.", "伺服器未設定 OPENAI_API_KEY。");
