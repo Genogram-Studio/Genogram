@@ -203,7 +203,8 @@ exports.handler = async (event) => {
   let result = r1.result, retried = false;
   const must = enforceable(pairs.filter((p) => inText.has(p.id)));       // 앞 문장에만 있던 용어는 이번 문장에 없어도 되므로 검사하지 않는다
   let missing = must.length ? G.checkOutput(must, result) : [];
-  if (missing.length) {
+  /* 실시간 통역(live)은 기다림이 더 큰 문제이므로 다시 번역하지 않는다 */
+  if (missing.length && body.live !== true) {
     retried = true;
     const again = [...messages,
       { role: "assistant", content: result },
