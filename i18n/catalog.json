@@ -1,6 +1,6 @@
 {
  "generatedFrom": "src/App.jsx",
- "count": 1016,
+ "count": 1034,
  "items": [
   {
    "en": "Genogram Studio",
@@ -220,7 +220,7 @@
    "words": 2,
    "tier": 1,
    "uses": 1,
-   "ambiguous": false
+   "ambiguous": true
   },
   {
    "en": "Quick to reopen from the home screen. Stays only in this browser.",
@@ -8473,29 +8473,149 @@
    "ambiguous": false
   },
   {
-   "en": "Taiwan voice is not connected: ELEVENLABS_API_KEY is not set on the server.",
-   "ko": "대만 음성이 연결되지 않았습니다: 서버에 ELEVENLABS_API_KEY가 없습니다.",
-   "zh": "台灣語音未連線：伺服器未設定 ELEVENLABS_API_KEY。",
-   "section": "VoiceStatus",
-   "words": 12,
+   "en": "Voice",
+   "ko": "목소리",
+   "zh": "語音",
+   "section": "VoiceModeSelect",
+   "words": 1,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
   },
   {
-   "en": "Could not load the Taiwan voice. Check the ElevenLabs key, voice access and balance.",
-   "ko": "대만 음성을 불러오지 못했습니다. ElevenLabs 키·목소리 권한·잔액을 확인해 주세요.",
-   "zh": "無法載入台灣語音，請確認 ElevenLabs 金鑰、語音權限與餘額。",
-   "section": "VoiceStatus",
-   "words": 14,
+   "en": "Middle-aged male · Korean/English (ElevenLabs)",
+   "ko": "중년 남성 · 한국어/영어 (ElevenLabs)",
+   "zh": "中年男聲 · 韓語/英語 (ElevenLabs)",
+   "section": "VoiceModeSelect",
+   "words": 5,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
   },
   {
-   "en": "Could not load the Beijing voice.",
-   "ko": "북경 음성을 불러오지 못했습니다.",
-   "zh": "無法載入北京語音。",
+   "en": "This device",
+   "ko": "기기 음성",
+   "zh": "裝置語音",
+   "section": "VoiceModeSelect",
+   "words": 2,
+   "tier": 1,
+   "uses": 2,
+   "ambiguous": true
+  },
+  {
+   "en": "Taiwan Mandarin · ElevenLabs",
+   "ko": "대만 중국어 · ElevenLabs",
+   "zh": "台灣華語 · ElevenLabs",
+   "section": "VOICE_NAMES",
+   "words": 4,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Korean middle-aged male · ElevenLabs",
+   "ko": "한국 중년 남성 · ElevenLabs",
+   "zh": "韓語中年男聲 · ElevenLabs",
+   "section": "VOICE_NAMES",
+   "words": 5,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "English middle-aged male · ElevenLabs",
+   "ko": "영어 중년 남성 · ElevenLabs",
+   "zh": "英語中年男聲 · ElevenLabs",
+   "section": "VOICE_NAMES",
+   "words": 5,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Beijing Mandarin · OpenAI",
+   "ko": "북경 중국어 · OpenAI",
+   "zh": "北京普通話 · OpenAI",
+   "section": "VOICE_NAMES",
+   "words": 4,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Taiwan voice",
+   "ko": "대만 음성",
+   "zh": "台灣語音",
+   "section": "VoiceStatus",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Beijing voice",
+   "ko": "북경 음성",
+   "zh": "北京語音",
+   "section": "VoiceStatus",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "ElevenLabs voice",
+   "ko": "ElevenLabs 음성",
+   "zh": "ElevenLabs 語音",
+   "section": "VoiceStatus",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "OpenAI voice",
+   "ko": "OpenAI 음성",
+   "zh": "OpenAI 語音",
+   "section": "VoiceStatus",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "ELEVENLABS_API_KEY is not set on the server.",
+   "ko": "서버에 ELEVENLABS_API_KEY가 없습니다.",
+   "zh": "伺服器未設定 ELEVENLABS_API_KEY。",
+   "section": "VoiceStatus",
+   "words": 7,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Check the ElevenLabs key, voice access and balance.",
+   "ko": "ElevenLabs 키·목소리 권한·잔액을 확인해 주세요.",
+   "zh": "請確認 ElevenLabs 金鑰、語音權限與餘額。",
+   "section": "VoiceStatus",
+   "words": 8,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Check the server's OpenAI key.",
+   "ko": "서버의 OpenAI 키를 확인해 주세요.",
+   "zh": "請確認伺服器的 OpenAI 金鑰。",
+   "section": "VoiceStatus",
+   "words": 5,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": " could not play, so reading stopped.",
+   "ko": "을 불러오지 못해 읽기를 멈췄습니다.",
+   "zh": "無法播放，已停止朗讀。",
    "section": "VoiceStatus",
    "words": 6,
    "tier": 1,
@@ -8513,41 +8633,91 @@
    "ambiguous": false
   },
   {
-   "en": "Taiwan Mandarin · ElevenLabs",
-   "ko": "대만 중국어 · ElevenLabs",
-   "zh": "台灣華語 · ElevenLabs",
+   "en": "Voice: ",
+   "ko": "음성: ",
+   "zh": "語音：",
    "section": "VoiceStatus",
-   "words": 4,
+   "words": 1,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
   },
   {
-   "en": "Beijing Mandarin · OpenAI",
-   "ko": "북경 중국어 · OpenAI",
-   "zh": "北京普通話 · OpenAI",
-   "section": "VoiceStatus",
-   "words": 4,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Device voice (server voice unavailable)",
-   "ko": "기기 음성 (서버 음성 실패)",
-   "zh": "裝置語音（伺服器語音失敗）",
-   "section": "VoiceStatus",
+   "en": "Cannot reach the server (network).",
+   "ko": "서버에 연결할 수 없습니다(네트워크).",
+   "zh": "無法連線到伺服器（網路）。",
+   "section": "aiErrorText",
    "words": 5,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
   },
   {
-   "en": "Voice: ",
-   "ko": "음성: ",
-   "zh": "語音：",
-   "section": "VoiceStatus",
-   "words": 1,
+   "en": "Server function not found — is this the full (interpreter) deploy?",
+   "ko": "서버 함수가 없습니다 — 통역판(full)으로 배포됐는지 확인해 주세요.",
+   "zh": "找不到伺服器函式，請確認是否為口譯版部署。",
+   "section": "aiErrorText",
+   "words": 11,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Access code is wrong or missing.",
+   "ko": "접근 코드가 틀렸거나 없습니다.",
+   "zh": "存取碼錯誤或未輸入。",
+   "section": "aiErrorText",
+   "words": 6,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "OPENAI_API_KEY is not set on the server.",
+   "ko": "서버에 OPENAI_API_KEY가 설정되지 않았습니다.",
+   "zh": "伺服器未設定 OPENAI_API_KEY。",
+   "section": "aiErrorText",
+   "words": 7,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "The server's OpenAI key was rejected.",
+   "ko": "서버의 OpenAI 키가 거부되었습니다(키·잔액 확인).",
+   "zh": "伺服器的 OpenAI 金鑰被拒。",
+   "section": "aiErrorText",
+   "words": 6,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Usage limit reached. Try again shortly.",
+   "ko": "사용량 한도에 걸렸습니다. 잠시 후 다시 시도해 주세요.",
+   "zh": "已達使用上限，請稍後再試。",
+   "section": "aiErrorText",
+   "words": 6,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "USER_ACCOUNTS setting is invalid.",
+   "ko": "서버의 USER_ACCOUNTS 설정이 잘못되었습니다.",
+   "zh": "伺服器 USER_ACCOUNTS 設定有誤。",
+   "section": "aiErrorText",
+   "words": 4,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Translation model call failed",
+   "ko": "번역 모델 호출 실패",
+   "zh": "翻譯模型呼叫失敗",
+   "section": "aiErrorText",
+   "words": 4,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
@@ -9508,6 +9678,16 @@
    "zh": "翻譯中…",
    "section": "InterpreterSection",
    "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Translation failed: ",
+   "ko": "번역 실패: ",
+   "zh": "翻譯失敗：",
+   "section": "InterpreterSection",
+   "words": 2,
    "tier": 1,
    "uses": 1,
    "ambiguous": false

@@ -6608,7 +6608,7 @@ async function gptTranslateRaw(text, fromLabel, toLabel, ctx = "", opts = {}) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, from: fromLabel, to: toLabel, context: ctx, tier, ...(opts.use === "interp" ? { live: true } : {}), ...(gl.length ? { glossary: gl } : {}) }),
   });
-  if (!resp.ok) throw new Error("gpt-translate " + resp.status);
+  if (!resp.ok) { let msg = ""; try { msg = (await resp.json()).error || ""; } catch {} const e = new Error("gpt-translate " + resp.status); e.status = resp.status; e.msg = msg; throw e; }
   const data = await resp.json();
   if (!data.result) throw new Error("gpt-translate: empty result");
   const meta = { ms: Math.round(nowMs() - t0), sms: data.ms, model: data.model || "", tier: data.tier || tier, fast: !!data.fast };
@@ -6702,6 +6702,20 @@ function useZhVoice() {
   }, []);
   return [v, setZhVoice];
 }
+/* 목소리 종류 — 두 창이 함께 쓴다. eleven: 한국어·영어 중년 남성(ElevenLabs) · openai · device(기기 음성).
+   중국어는 이 선택과 상관없이 '중국어 발음'(대만·북경)을 따른다. */
+const VOICE_KEY = "gs:voice-mode";
+const getVoiceMode = () => { try { const v = localStorage.getItem(VOICE_KEY); return v === "openai" || v === "device" ? v : "eleven"; } catch { return "eleven"; } };
+function setVoiceMode(v) { try { localStorage.setItem(VOICE_KEY, v); } catch {} window.dispatchEvent(new Event("gs-voice-mode")); }
+function useVoiceMode() {
+  const [v, setV] = useState(getVoiceMode);
+  useEffect(() => {
+    const f = () => setV(getVoiceMode());
+    window.addEventListener("gs-voice-mode", f); window.addEventListener("storage", f);
+    return () => { window.removeEventListener("gs-voice-mode", f); window.removeEventListener("storage", f); };
+  }, []);
+  return [v, setVoiceMode];
+}
 const Speaker = /*#__PURE__*/ (() => {
   let el = null, unlocked = false, playing = false, token = 0, resolveCur = null;
   let queue = [];
@@ -6711,11 +6725,11 @@ const Speaker = /*#__PURE__*/ (() => {
   let voiceInfo = null, error = null;
   const emit = () => { const st = { playing, phase, pending: queue.length + (playing ? 1 : 0), voice: voiceInfo, error }; subs.forEach((f) => f(st)); };
   const audioEl = () => { if (!el) { el = new Audio(); el.preload = "auto"; } return el; };
-  const fetchAudio = async (text, lang, zh, settings) => {
+  const fetchAudio = async (text, lang, zh, mode, settings) => {
     try {
       const resp = await aiFetch("/.netlify/functions/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, lang, speed: settings.speed, ...(lang === "zh" ? { zh } : {}) }),
+        body: JSON.stringify({ text, lang, speed: settings.speed, voice: mode === "openai" ? "openai" : "eleven", ...(lang === "zh" ? { zh } : {}) }),
       });
       if (!resp.ok) { let reason = `http_${resp.status}`; try { reason = (await resp.json()).reason || reason; } catch {} return { reason }; }
       return { url: URL.createObjectURL(await resp.blob()), provider: resp.headers.get("X-Voice-Provider") || "" };
@@ -6741,19 +6755,21 @@ const Speaker = /*#__PURE__*/ (() => {
     a.src = url;
     try { const p = a.play(); if (p && p.catch) p.catch(fin); } catch { fin(); }
   });
-  const dropQueue = () => { queue.forEach((j) => j.audio.then((r) => r?.url && URL.revokeObjectURL(r.url))); queue = []; };
+  const dropQueue = () => { queue.forEach((j) => j.audio && j.audio.then((r) => r?.url && URL.revokeObjectURL(r.url))); queue = []; };
   const pump = async () => {
     if (playing) return;
     const job = queue.shift();
     if (!job) { phase = "idle"; emit(); return; }
-    playing = true; phase = "preparing"; const my = token; emit();
+    playing = true; phase = job.device ? "playing" : "preparing"; const my = token; emit();
     try {
-      const res = await job.audio;
-      if (my !== token) { if (res?.url) URL.revokeObjectURL(res.url); }
-      else if (res?.url) { voiceInfo = { lang: job.lang, zh: job.zh, provider: res.provider }; phase = "playing"; emit(); await playUrl(res.url); URL.revokeObjectURL(res.url); }
-      /* 중국어는 다른 억양의 목소리로 대신 읽지 않는다 — 멈추고 까닭을 알린다 */
-      else if (job.lang === "zh") { error = { zh: job.zh, reason: res?.reason || "" }; dropQueue(); }
-      else { phase = "playing"; emit(); await deviceSay(job.text, job.lang, job.settings); }
+      if (job.device) await deviceSay(job.text, job.lang, job.settings);
+      else {
+        const res = await job.audio;
+        if (my !== token) { if (res?.url) URL.revokeObjectURL(res.url); }
+        else if (res?.url) { voiceInfo = { lang: job.lang, zh: job.zh, provider: res.provider }; phase = "playing"; emit(); await playUrl(res.url); URL.revokeObjectURL(res.url); }
+        /* 어떤 언어든 다른 목소리로 대신 읽지 않는다 — 멈추고 까닭을 알린다 */
+        else { error = { lang: job.lang, zh: job.zh, mode: job.mode, reason: res?.reason || "" }; dropQueue(); }
+      }
     } catch {}
     resolveCur = null; playing = false;
     pump();
@@ -6776,8 +6792,9 @@ const Speaker = /*#__PURE__*/ (() => {
       if (interrupt) this.stop();
       error = null;
       const snapshot = { ...opts, ...settings };
-      const zh = getZhVoice();
-      queue.push({ text, lang, zh, settings: snapshot, audio: fetchAudio(text, lang, zh, snapshot) });
+      const zh = getZhVoice(), mode = getVoiceMode();
+      const device = mode === "device" && lang !== "zh";
+      queue.push({ text, lang, zh, mode, device, settings: snapshot, audio: device ? null : fetchAudio(text, lang, zh, mode, snapshot) });
       emit(); pump();
     },
     stop() {
@@ -6800,24 +6817,38 @@ function ZhVoiceSelect({ li, style }) {
       <option value="cn">{tr(["Beijing (OpenAI)", "북경 (OpenAI)", "北京 (OpenAI)"], li)}</option>
     </select></label>;
 }
+function VoiceModeSelect({ li, style }) {
+  const [mode, setMode] = useVoiceMode();
+  return <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, ...style }}>{tr(["Voice", "목소리", "語音"], li)}
+    <select value={mode} onChange={(e) => setMode(e.target.value)} style={{ fontSize: 11 }}>
+      <option value="eleven">{tr(["Middle-aged male · Korean/English (ElevenLabs)", "중년 남성 · 한국어/영어 (ElevenLabs)", "中年男聲 · 韓語/英語 (ElevenLabs)"], li)}</option>
+      <option value="openai">OpenAI</option>
+      <option value="device">{tr(["This device", "기기 음성", "裝置語音"], li)}</option>
+    </select></label>;
+}
+const VOICE_NAMES = {
+  "elevenlabs-tw": ["Taiwan Mandarin · ElevenLabs", "대만 중국어 · ElevenLabs", "台灣華語 · ElevenLabs"],
+  "elevenlabs-ko": ["Korean middle-aged male · ElevenLabs", "한국 중년 남성 · ElevenLabs", "韓語中年男聲 · ElevenLabs"],
+  "elevenlabs-en": ["English middle-aged male · ElevenLabs", "영어 중년 남성 · ElevenLabs", "英語中年男聲 · ElevenLabs"],
+  "openai-cn": ["Beijing Mandarin · OpenAI", "북경 중국어 · OpenAI", "北京普通話 · OpenAI"],
+  openai: ["OpenAI", "OpenAI", "OpenAI"],
+  device: ["This device", "기기 음성", "裝置語音"],
+};
 /* 지금 어떤 목소리로 읽는지, 또는 왜 읽지 못했는지 */
 function VoiceStatus({ li, sp }) {
   const t = (en, ko, zh) => tr([en, ko, zh], li);
   if (sp.error) {
-    const tw = sp.error.zh !== "cn";
-    const msg = tw && sp.error.reason === "missing_key"
-      ? t("Taiwan voice is not connected: ELEVENLABS_API_KEY is not set on the server.", "대만 음성이 연결되지 않았습니다: 서버에 ELEVENLABS_API_KEY가 없습니다.", "台灣語音未連線：伺服器未設定 ELEVENLABS_API_KEY。")
-      : tw ? t("Could not load the Taiwan voice. Check the ElevenLabs key, voice access and balance.", "대만 음성을 불러오지 못했습니다. ElevenLabs 키·목소리 권한·잔액을 확인해 주세요.", "無法載入台灣語音，請確認 ElevenLabs 金鑰、語音權限與餘額。")
-      : t("Could not load the Beijing voice.", "북경 음성을 불러오지 못했습니다.", "無法載入北京語音。");
-    return <div role="alert" style={{ fontSize: 11, color: T.red, fontFamily: FB }}>{msg} {t("It did not switch to another voice.", "다른 목소리로 바꿔 읽지 않았습니다.", "未改用其他語音。")}{sp.error.reason && sp.error.reason !== "missing_key" ? ` (${sp.error.reason})` : ""}</div>;
+    const { lang, zh, mode, reason } = sp.error;
+    const el = lang === "zh" ? zh !== "cn" : (lang === "ko" || lang === "en") && mode !== "openai";
+    const who = lang === "zh" ? (zh !== "cn" ? t("Taiwan voice", "대만 음성", "台灣語音") : t("Beijing voice", "북경 음성", "北京語音"))
+      : el ? t("ElevenLabs voice", "ElevenLabs 음성", "ElevenLabs 語音") : t("OpenAI voice", "OpenAI 음성", "OpenAI 語音");
+    const why = reason === "missing_key" ? t("ELEVENLABS_API_KEY is not set on the server.", "서버에 ELEVENLABS_API_KEY가 없습니다.", "伺服器未設定 ELEVENLABS_API_KEY。")
+      : el ? t("Check the ElevenLabs key, voice access and balance.", "ElevenLabs 키·목소리 권한·잔액을 확인해 주세요.", "請確認 ElevenLabs 金鑰、語音權限與餘額。")
+      : t("Check the server's OpenAI key.", "서버의 OpenAI 키를 확인해 주세요.", "請確認伺服器的 OpenAI 金鑰。");
+    return <div role="alert" style={{ fontSize: 11, color: T.red, fontFamily: FB }}>{who}{t(" could not play, so reading stopped.", "을 불러오지 못해 읽기를 멈췄습니다.", "無法播放，已停止朗讀。")} {why} {t("It did not switch to another voice.", "다른 목소리로 바꿔 읽지 않았습니다.", "未改用其他語音。")}{reason && reason !== "missing_key" ? ` (${reason})` : ""}</div>;
   }
   if (!sp.playing || sp.phase !== "playing" || !sp.voice) return null;
-  const p = sp.voice.provider;
-  const label = p === "elevenlabs-tw" ? t("Taiwan Mandarin · ElevenLabs", "대만 중국어 · ElevenLabs", "台灣華語 · ElevenLabs")
-    : p === "openai-cn" ? t("Beijing Mandarin · OpenAI", "북경 중국어 · OpenAI", "北京普通話 · OpenAI")
-    : p === "device" ? t("Device voice (server voice unavailable)", "기기 음성 (서버 음성 실패)", "裝置語音（伺服器語音失敗）")
-    : "OpenAI";
-  return <div style={{ fontSize: 11, color: T.mute, fontFamily: FB }}>{t("Voice: ", "음성: ", "語音：")}{label}</div>;
+  return <div style={{ fontSize: 11, color: T.mute, fontFamily: FB }}>{t("Voice: ", "음성: ", "語音：")}{tr(VOICE_NAMES[sp.voice.provider] || VOICE_NAMES.openai, li)}</div>;
 }
 function useSpeaker() {
   const [st, setSt] = useState({ playing: false, pending: 0 });
@@ -6826,6 +6857,20 @@ function useSpeaker() {
 }
 /* 눌러서 듣기(🔊) — 지금 나오던 소리는 끊고 이것부터 */
 function speakTTS(text, langCode, settings = {}) { Speaker.unlock(); Speaker.say(text, langCode, { ...settings, interrupt: true }); }
+
+/* 번역·음성 서버가 실패한 까닭을 사람이 알아볼 말로 — 어디를 고쳐야 할지 보이도록 */
+function aiErrorText(err, li) {
+  const t = (en, ko, zh) => tr([en, ko, zh], li);
+  const st = err && err.status, msg = String((err && err.msg) || "");
+  if (!st) return t("Cannot reach the server (network).", "서버에 연결할 수 없습니다(네트워크).", "無法連線到伺服器（網路）。");
+  if (st === 404) return t("Server function not found — is this the full (interpreter) deploy?", "서버 함수가 없습니다 — 통역판(full)으로 배포됐는지 확인해 주세요.", "找不到伺服器函式，請確認是否為口譯版部署。");
+  if (st === 401) return t("Access code is wrong or missing.", "접근 코드가 틀렸거나 없습니다.", "存取碼錯誤或未輸入。");
+  if (/OPENAI_API_KEY is not set/.test(msg)) return t("OPENAI_API_KEY is not set on the server.", "서버에 OPENAI_API_KEY가 설정되지 않았습니다.", "伺服器未設定 OPENAI_API_KEY。");
+  if (/key rejected/i.test(msg)) return t("The server's OpenAI key was rejected.", "서버의 OpenAI 키가 거부되었습니다(키·잔액 확인).", "伺服器的 OpenAI 金鑰被拒。");
+  if (st === 429) return t("Usage limit reached. Try again shortly.", "사용량 한도에 걸렸습니다. 잠시 후 다시 시도해 주세요.", "已達使用上限，請稍後再試。");
+  if (/USER_ACCOUNTS/.test(msg)) return t("USER_ACCOUNTS setting is invalid.", "서버의 USER_ACCOUNTS 설정이 잘못되었습니다.", "伺服器 USER_ACCOUNTS 設定有誤。");
+  return t("Translation model call failed", "번역 모델 호출 실패", "翻譯模型呼叫失敗") + ` (${st}${msg ? " " + msg : ""})`;
+}
 
 /* ── 긴 글을 문장 단위로 번역 ────────────────────────────────────────
    앞 문장부터 차례로 결과를 알려 주므로 첫 문장이 먼저 보이고 먼저 읽힌다.
@@ -6836,14 +6881,14 @@ async function translateSeq(text, fromLabel, toLabel, { concurrency = 3, onSente
   if (!sents.length) return [];
   const out = new Array(sents.length).fill(undefined);
   let next = 0, emitted = 0;
-  const flush = () => { while (emitted < out.length && out[emitted] !== undefined) { onSentence && onSentence(emitted, out[emitted].text, out[emitted].failed); emitted++; } };
+  const flush = () => { while (emitted < out.length && out[emitted] !== undefined) { onSentence && onSentence(emitted, out[emitted].text, out[emitted].failed, out[emitted].err); emitted++; } };
   const worker = async () => {
     for (;;) {
       const i = next++;
       if (i >= sents.length) return;
       const ctx = sents.slice(Math.max(0, i - 2), i).join(" ");
       try { out[i] = { text: await gptTranslateStrict(sents[i], fromLabel, toLabel, ctx, { use }), failed: false }; }
-      catch { out[i] = { text: sents[i], failed: true }; }
+      catch (err) { out[i] = { text: sents[i], failed: true, err }; }
       flush();
     }
   };
@@ -7828,7 +7873,7 @@ function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleD
       inflight.current.add(id);
       jobs.current.push(async () => {
         try { put(memo.id, { [lg]: await gptTranslateStrict(memo.text, GPT_LANG[LANG_IDX[memo.source]], GPT_LANG[LANG_IDX[lg]], ctx, { use: "strip" }), [lg + "Err"]: false }); }
-        catch (err) { console.error(err); put(memo.id, { [lg + "Err"]: true }); }
+        catch (err) { console.error(err); put(memo.id, { [lg + "Err"]: aiErrorText(err, li) }); }
         finally { inflight.current.delete(id); }
       });
     });
@@ -7946,7 +7991,7 @@ function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleD
               onKeyDown={(ev) => { if (ev.key === "Escape") setEditing(null); else if (ev.key === "Enter" && !ev.shiftKey && !ev.nativeEvent.isComposing) { ev.preventDefault(); saveEdit(); } }}
               style={{ width: "100%", boxSizing: "border-box", fontSize: scaleOf(lg, px), fontFamily: FB, border: `1px solid ${T.pine}`, borderRadius: 6, padding: "1px 5px", resize: "none", outline: "none", lineHeight: lhOf(lg, 1.2) }} />
           ) : (txt || (e[lg + "Err"]
-            ? <button type="button" onClick={() => retry(memo, lg)} style={{ border: "none", background: "transparent", color: T.red, cursor: "pointer", fontSize: 10.5, fontFamily: FB, padding: 0 }}>⚠ {t("Failed — tap to retry", "번역 실패 — 눌러서 다시", "翻譯失敗 — 點此重試")}</button>
+            ? <button type="button" onClick={() => retry(memo, lg)} style={{ border: "none", background: "transparent", color: T.red, cursor: "pointer", fontSize: 10.5, fontFamily: FB, padding: 0 }}>⚠ {t("Failed — tap to retry", "번역 실패 — 눌러서 다시", "翻譯失敗 — 點此重試")}{typeof e[lg + "Err"] === "string" ? ` · ${e[lg + "Err"]}` : ""}</button>
             : "…"))}
           {e[lg + "Edited"] && !isEd && <span style={{ fontSize: 9, color: T.mute, marginLeft: 4 }}>{t("(edited)", "(수정함)", "（已修改）")}</span>}
         </div>
@@ -8072,6 +8117,7 @@ function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleD
         <details className="gs-trans-settings" open={showSet} onToggle={(e) => setShowSet(e.currentTarget.open)} style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "4px 8px", background: T.paper, borderBottom: `1px solid ${T.rule}`, fontSize: 10.5, fontFamily: FB, color: T.ink2, alignItems: "center", maxHeight: "40%", flexShrink: 0, overflowY: "auto" }}>
           <summary style={{ cursor: "pointer", fontWeight: 700, padding: 5 }}>{t("Reading settings · comparison · glossary", "읽기 설정 · 번역 비교 · 용어집", "朗讀設定 · 翻譯比較 · 詞彙表")}</summary>
           <ZhVoiceSelect li={li} />
+          <VoiceModeSelect li={li} />
           <label style={{ display: "flex", alignItems: "center", gap: 5 }}>{t("Speed", "속도", "速度")}
             <select value={cfg.speed} onChange={(e) => setC({ speed: +e.target.value })} style={inp}>
               <option value={0.85}>{t("Slow", "느리게", "慢")}</option><option value={1}>{t("Normal", "보통", "正常")}</option><option value={1.15}>{t("Fast", "빠르게", "快")}</option>
@@ -8192,16 +8238,19 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
     const toIdx = who === "me" ? theirLang : myLang;
     const setTr = who === "me" ? setMyTrans : setTheirTrans;
     const parts = [];
+    let anyFail = false;
     setTr("");
     await translateSeq(text, GPT_LANG[fromIdx], GPT_LANG[toIdx], {
       use: "interp",
-      onSentence: (i, tx, failed) => {
+      onSentence: (i, tx, failed, err) => {
         if (!alive.current || id !== operation.current) return;
+        if (failed) { anyFail = true; setStatus(t("Translation failed: ", "번역 실패: ", "翻譯失敗：") + aiErrorText(err, li)); }
         parts[i] = failed ? `⚠ ${tx}` : tx;
         setTr(parts.filter((x) => x != null).join(" "));
         if (!failed && cfg.autoRead) Speaker.say(tx, LANG_CODE[toIdx], cfg);   // 번역이 안 된 문장은 읽지 않는다
       },
     });
+    if (!anyFail && alive.current && id === operation.current) setStatus("");
   };
 
   const startRec = async (who) => {
@@ -8247,7 +8296,7 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
     if (!text.trim() || busy || recording || starting.current) return;
     const id = ++operation.current;
     Speaker.unlock(); setBusy(true);
-    try { await deliver(who, text, id); if (alive.current) setStatus(""); }
+    try { await deliver(who, text, id); }
     catch { if (alive.current) setStatus(t("Translation failed. Please retry.", "번역에 실패했습니다. 다시 시도해 주세요.", "翻譯失敗，請重試。")); }
     finally { if (alive.current && id === operation.current) setBusy(false); }
   };
@@ -8316,6 +8365,7 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
         <ZhVoiceSelect li={li} />
+        <VoiceModeSelect li={li} />
         <VoiceStatus li={li} sp={playback} />
       </div>
       <div style={{ display: "flex", flex: 1, gap: 12, flexWrap: "wrap" }}>
