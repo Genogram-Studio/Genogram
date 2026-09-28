@@ -10,6 +10,8 @@ const { json, parseBody, resolveAccount } = require("./_util");
 
 const MODEL = process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts";
 const VOICE = process.env.OPENAI_TTS_VOICE || "marin";
+/* 앱의 설정에서 고를 수 있는 OpenAI 목소리. 목록에 없는 값이 오면 무시하고 기본값을 쓴다. */
+const OPENAI_VOICES = new Set(["marin", "cedar", "coral", "nova", "alloy", "sage", "ash", "ballad", "echo", "fable", "onyx", "shimmer", "verse"]);
 
 /* 언어마다 어떻게 읽을지 지시한다. 상담 자리이므로 차분하고 또렷하게. */
 const STYLE = {
@@ -81,6 +83,8 @@ exports.handler = async (event) => {
   const text = req && typeof req.text === "string" ? req.text.trim() : "";
   if (!text) return json(400, { error: "text is required" });
   const lang = req && STYLE[req.lang] ? req.lang : "en";
+  const picked = req && typeof req.openaiVoice === "string" ? req.openaiVoice.trim().toLowerCase() : "";
+  const oaVoice = OPENAI_VOICES.has(picked) ? picked : VOICE;
   const speed = req && Number(req.speed) >= 0.5 && Number(req.speed) <= 1.5 ? Number(req.speed) : 1;
   const input = text.slice(0, 4000);
   if (lang === "zh" && req.zh !== "cn") return elevenVoice(EL_VOICES.tw, input, speed);
@@ -88,7 +92,7 @@ exports.handler = async (event) => {
 
   /* 목소리는 하나만 쓴다 — 실패해도 다른 목소리로 바꾸지 않는다 */
   const model = lang === "zh" && !/^gpt-4o-mini-tts/.test(MODEL) ? "gpt-4o-mini-tts" : MODEL;   // 발음 지시를 따르는 모델
-  const tries = [{ model, voice: VOICE, instructions: STYLE[lang] }];
+  const tries = [{ model, voice: oaVoice, instructions: STYLE[lang] }];
   let status = 0;
   try {
     for (const t of tries) {

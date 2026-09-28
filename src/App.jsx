@@ -6737,7 +6737,7 @@ const Speaker = /*#__PURE__*/ (() => {
     try {
       const resp = await aiFetch("/.netlify/functions/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, lang, speed: settings.speed, voice: mode === "openai" ? "openai" : "eleven", ...(lang === "zh" ? { zh } : {}) }),
+        body: JSON.stringify({ text, lang, speed: settings.speed, voice: mode === "openai" ? "openai" : "eleven", openaiVoice: getOaVoice(), ...(lang === "zh" ? { zh } : {}) }),
       });
       if (!resp.ok) { let reason = `http_${resp.status}`; try { reason = (await resp.json()).reason || reason; } catch {} return { reason }; }
       return { url: URL.createObjectURL(await resp.blob()), provider: resp.headers.get("X-Voice-Provider") || "" };
@@ -6836,6 +6836,21 @@ function VoiceModeSelect({ li, style }) {
 }
 /* 읽기 속도도 두 창이 함께 쓴다 — 번역창에서 바꾸면 통역창에도 그대로 적용된다.
    전에는 창마다 따로 저장되어, 같은 '속도'가 창에 따라 다르게 동작했다. */
+/* 대체 목소리 — 프랑스어·태국어·크메르어처럼 ElevenLabs 목소리가 없는 언어를 읽을 때 쓴다.
+   서버의 기본값 대신 이 기기에서 고른 목소리를 쓴다. */
+const OAI_VOICE_KEY = "gs:openai-voice";
+const OAI_VOICES = ["marin", "cedar", "coral", "nova", "alloy", "sage"];
+const getOaVoice = () => { try { const v = localStorage.getItem(OAI_VOICE_KEY); return OAI_VOICES.includes(v) ? v : "marin"; } catch { return "marin"; } };
+function setOaVoice(v) { try { localStorage.setItem(OAI_VOICE_KEY, v); } catch {} window.dispatchEvent(new Event("gs-openai-voice")); }
+function useOaVoice() {
+  const [v, setV] = useState(getOaVoice);
+  useEffect(() => {
+    const f = () => setV(getOaVoice());
+    window.addEventListener("gs-openai-voice", f); window.addEventListener("storage", f);
+    return () => { window.removeEventListener("gs-openai-voice", f); window.removeEventListener("storage", f); };
+  }, []);
+  return [v, setOaVoice];
+}
 const SPEED_KEY = "gs:voice-speed";
 const getVoiceSpeed = () => { try { const v = Number(localStorage.getItem(SPEED_KEY)); return v >= 0.5 && v <= 1.5 ? v : 1; } catch { return 1; } };
 function setVoiceSpeed(v) { try { localStorage.setItem(SPEED_KEY, String(v)); } catch {} window.dispatchEvent(new Event("gs-voice-speed")); }
@@ -6848,18 +6863,76 @@ function useVoiceSpeed() {
   }, []);
   return [v, setVoiceSpeed];
 }
-/* 음성 설정은 이 한 곳에만 둔다 — 번역창과 통역창이 같은 설정을 쓰므로 양쪽에 따로 두지 않는다. */
-function VoiceSettings({ li }) {
+/* 번역과 음성 설정은 이 한 곳에만 둔다 — 번역칸과 통역칸이 같은 설정을 쓰므로 양쪽에 따로 두지 않는다.
+   한 줄에 하나씩, 이름과 고르는 칸을 위아래로 두어 좁은 화면에서도 읽힌다. */
+const SAMPLE = {
+  ko: ["안녕하세요. 지금 이 목소리로 읽어 드립니다.", "ko"],
+  zh: ["您好，我會用這個聲音為您朗讀。", "zh"],
+  th: ["สวัสดีค่ะ ดิฉันจะอ่านให้ฟังด้วยเสียงนี้", "th"],
+};
+function SettingRow({ label, hint, children }) {
+  return <label style={{ display: "flex", flexDirection: "column", gap: 3, flex: "1 1 210px", minWidth: 0 }}>
+    <span style={{ fontSize: 10.5, fontFamily: FB, color: T.mute }}>{label}</span>
+    {children}
+    {hint && <span style={{ fontSize: 10, color: T.faint }}>{hint}</span>}
+  </label>;
+}
+function VoiceSettings({ li, tier, onTier }) {
+  const [zh, setZh] = useZhVoice();
+  const [mode, setMode] = useVoiceMode();
+  const [oa, setOa] = useOaVoice();
   const [speed, setSpeed] = useVoiceSpeed();
-  const t = (en, ko, zh) => tr([en, ko, zh], li);
-  return <>
-    <ZhVoiceSelect li={li} />
-    <VoiceModeSelect li={li} />
-    <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11 }}>{t("Speed", "속도", "速度")}
-      <select value={speed} onChange={(e) => setSpeed(+e.target.value)} style={{ fontSize: 11 }}>
-        <option value={0.85}>{t("Slow", "느리게", "慢")}</option><option value={1}>{t("Normal", "보통", "正常")}</option><option value={1.15}>{t("Fast", "빠르게", "快")}</option>
-      </select></label>
-  </>;
+  const t = (en, ko, zhs) => tr([en, ko, zhs], li);
+  const sel = { border: `1px solid ${T.rule}`, borderRadius: 7, padding: "4px 6px", fontSize: 11.5, fontFamily: FB, color: T.ink, background: "#fff", width: "100%" };
+  const tryVoice = (key) => { const [text, lang] = SAMPLE[key]; speakTTS(text, lang, { speed }); };
+  const btn = { border: `1px solid ${T.rule}`, borderRadius: 7, background: "#fff", color: T.ink2, padding: "4px 10px", fontSize: 11, fontFamily: FB, cursor: "pointer" };
+  return <div style={{ flex: "1 1 100%", display: "flex", flexDirection: "column", gap: 8 }}>
+    <div style={{ fontWeight: 700, color: T.ink, fontSize: 11.5 }}>{t("Translation and voice", "번역과 음성", "翻譯與語音")}</div>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+      {onTier && (
+        <SettingRow label={t("Translation quality", "번역 품질", "翻譯品質")}>
+          <select value={tier} onChange={(e) => onTier(e.target.value)} style={sel}>
+            <option value="pro">{t("Precise (default)", "정밀 (기본)", "精準（預設）")}</option>
+            <option value="std">{t("Standard — faster", "일반 — 더 빠름", "一般 — 更快")}</option>
+            <option value="auto">{t("Auto — by situation", "자동 — 장면에 맞게", "自動 — 依情境")}</option>
+          </select>
+        </SettingRow>
+      )}
+      <SettingRow label={t("Chinese voice", "중국어 발음", "中文發音")}>
+        <select value={zh} onChange={(e) => setZh(e.target.value)} style={sel}>
+          <option value="tw">{t("Taiwan Mandarin (ElevenLabs)", "대만 중국어 (ElevenLabs)", "台灣華語 (ElevenLabs)")}</option>
+          <option value="cn">{t("Beijing Mandarin (OpenAI)", "북경 중국어 (OpenAI)", "北京普通話 (OpenAI)")}</option>
+        </select>
+      </SettingRow>
+      <SettingRow label={t("Korean / English voice", "한국어·영어 목소리", "韓語・英語語音")}>
+        <select value={mode} onChange={(e) => setMode(e.target.value)} style={sel}>
+          <option value="eleven">{t("Middle-aged male (ElevenLabs)", "중년 남성 (ElevenLabs)", "中年男聲 (ElevenLabs)")}</option>
+          <option value="openai">OpenAI</option>
+          <option value="device">{t("This device", "기기 음성", "裝置語音")}</option>
+        </select>
+      </SettingRow>
+      <SettingRow label={t("Fallback voice · French/Thai/Khmer", "대체 목소리 · 프랑스어/태국어/크메르어", "替代語音 · 法語/泰語/高棉語")}>
+        <select value={oa} onChange={(e) => setOa(e.target.value)} style={sel}>
+          {OAI_VOICES.map((v) => <option key={v} value={v}>{v[0].toUpperCase() + v.slice(1)}{v === "marin" ? t(" (default)", " (기본)", "（預設）") : ""}</option>)}
+        </select>
+      </SettingRow>
+    </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <span style={{ fontSize: 10.5, fontFamily: FB, color: T.mute }}>{t("Reading speed ", "읽기 속도 ", "朗讀速度 ")}{speed.toFixed(2)}×</span>
+      <input type="range" min={0.7} max={1.2} step={0.05} value={speed} onChange={(e) => setSpeed(+e.target.value)} style={{ width: "100%", accentColor: T.pine }} />
+    </div>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      <button type="button" onClick={() => tryVoice("ko")} style={btn}>▷ {t("Hear Korean", "한국어 들어 보기", "試聽韓語")}</button>
+      <button type="button" onClick={() => tryVoice("zh")} style={btn}>▷ {t("Hear Chinese", "중국어 들어 보기", "試聽中文")}</button>
+      <button type="button" onClick={() => tryVoice("th")} style={btn}>▷ {t("Hear the fallback voice", "대체 목소리 들어 보기", "試聽替代語音")}</button>
+      <button type="button" onClick={() => Speaker.stop()} style={{ ...btn, color: T.red, borderColor: T.red }}>■ {t("Stop", "멈춤", "停止")}</button>
+    </div>
+    <div style={{ fontSize: 10, color: T.faint, lineHeight: 1.6 }}>
+      {t("Korean and English use the ElevenLabs middle-aged male voice; Chinese uses the Taiwan ElevenLabs voice. French, Thai and Khmer use the fallback voice you chose above. Speed applies to every language.",
+         "한국어와 영어는 ElevenLabs 중년 남성 목소리, 중국어는 대만 ElevenLabs 목소리로 읽습니다. 프랑스어·태국어·크메르어는 위에서 고른 대체 목소리를 씁니다. 속도는 모든 언어에 함께 적용됩니다.",
+         "韓語與英語使用 ElevenLabs 中年男聲，中文使用台灣 ElevenLabs 語音。法語、泰語與高棉語使用上方所選的替代語音。速度套用於所有語言。")}
+    </div>
+  </div>;
 }
 const VOICE_NAMES = {
   "elevenlabs-tw": ["Taiwan Mandarin · ElevenLabs", "대만 중국어 · ElevenLabs", "台灣華語 · ElevenLabs"],
@@ -7013,6 +7086,8 @@ function AppInner() {
      기존 초안도 지운다. 이 기기에만 적용되는 설정이다. */
   const [autosaveOn, setAutosaveOn] = useState(true);
   const [langTab, setLangTab] = useState(null);      // null | "trans" | "interp" — 번역·통역은 한 창의 두 칸
+  const lastLangTab = useRef("trans");               // 다시 열 때 마지막으로 보던 칸으로
+  useEffect(() => { if (langTab) lastLangTab.current = langTab; }, [langTab]);
   const [langDocked, setLangDocked] = useDockPreference("gs:dock-language");
 
   const [teaserOpen, setTeaserOpen] = useState(false);   // 기본판의 번역·통역 안내창
@@ -7249,8 +7324,7 @@ function AppInner() {
             <div style={{ flex: 1 }} />
             {/* 사례당 한 번 쓰는 일들 — 새로 시작하고, 저장하고, 분석한다 */}
 
-            {HAS_AI && screen === "draw" && <TopChip onClick={() => setLangTab((v) => (v === "trans" ? null : "trans"))}>🌐 {tr(["Translate","번역","翻譯"], li)}</TopChip>}
-            {HAS_AI && screen === "draw" && <TopChip onClick={() => setLangTab((v) => (v === "interp" ? null : "interp"))}>🎤 {tr(["Interpret","통역","口譯"], li)}</TopChip>}
+            {HAS_AI && screen === "draw" && <TopChip onClick={() => setLangTab((v) => (v ? null : lastLangTab.current))}>🌐 {tr(["Translate · Interpret","번역 · 통역","翻譯 · 口譯"], li)}</TopChip>}
             {!HAS_AI && screen === "draw" && <TopChip faded onClick={() => setTeaserOpen(true)}>🌐 {tr(["Translate","번역","翻譯"], li)}</TopChip>}
             {!HAS_AI && screen === "draw" && <TopChip faded onClick={() => setTeaserOpen(true)}>🎤 {tr(["Interpret","통역","口譯"], li)}</TopChip>}
             {screen === "draw" && <TopChip onClick={() => { setExitAfterSave(true); setSaveDlg(true); }}>{t("exitSave")}</TopChip>}
@@ -8115,12 +8189,6 @@ function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleD
           {FIELD_LANGUAGES.filter((l) => l !== cfg.source).map((l) => (
             <button key={l} type="button" className={"gs-show-" + l} onClick={() => toggleShow(l)} style={chip(cfg.show[l])}>{tr(SHOW_NAME[l], li)}</button>
           ))}
-          <span style={{ ...lab, marginLeft: 6 }}>{t("Quality", "품질", "品質")}</span>
-          {[["auto", t("Auto", "자동", "自動"), t("By situation: sentences and interpreting use Standard, long text uses Precise", "장면에 맞게: 문장·통역은 일반, 긴 글은 정밀", "依情境：句子與口譯用一般，長文用精準")],
-            ["std", t("Standard", "일반", "一般"), t("Faster and cheaper", "더 빠르고 저렴", "更快、更省")],
-            ["pro", t("Precise", "정밀", "精準"), t("Most accurate", "가장 정확", "最精準")]].map(([v, name, tip]) => (
-            <button key={v} type="button" className={"gs-tier-" + v} title={tip} onClick={() => changeTier(v)} style={chip(tier === v)}>{name}</button>
-          ))}
           <span className="gs-trans-meta" title={t("Time of the last translation and the model that answered", "마지막 번역이 걸린 시간과 답한 모델", "最近一次翻譯的耗時與模型")}
             style={{ marginLeft: "auto", fontSize: 9.5, color: T.mute, fontFamily: FM }}>{metaText}{meta ? ` · ${tierName(meta.tier)}` : ""}</span>
         </div>
@@ -8174,7 +8242,7 @@ function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleD
       {!fold && (
         <details className="gs-trans-settings" open={showSet} onToggle={(e) => setShowSet(e.currentTarget.open)} style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "4px 8px", background: T.paper, borderBottom: `1px solid ${T.rule}`, fontSize: 10.5, fontFamily: FB, color: T.ink2, alignItems: "center", maxHeight: "40%", flexShrink: 0, overflowY: "auto" }}>
           <summary style={{ cursor: "pointer", fontWeight: 700, padding: 5 }}>{t("Reading settings · comparison · glossary", "읽기 설정 · 번역 비교 · 용어집", "朗讀設定 · 翻譯比較 · 詞彙表")}</summary>
-          <VoiceSettings li={li} />
+          <VoiceSettings li={li} tier={tier} onTier={changeTier} />
           <label style={{ display: "flex", alignItems: "center", gap: 5 }}><input type="checkbox" checked={assistOn} className="gs-assist-toggle"
             onChange={(e) => { try { localStorage.setItem("gs:assist", e.target.checked ? "on" : "off"); } catch {} setAssistOn(e.target.checked); window.dispatchEvent(new Event("gs-assist-cfg")); }} />
             {t("Show the 🌐 button in text fields (Alt+Enter always works)", "글칸에 🌐 번역 단추 표시 (Alt+Enter는 늘 됨)", "在文字欄顯示 🌐 按鈕（Alt+Enter 隨時可用）")}</label>

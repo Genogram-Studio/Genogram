@@ -1,6 +1,6 @@
 {
  "generatedFrom": "src/App.jsx",
- "count": 1037,
+ "count": 1044,
  "items": [
   {
    "en": "Genogram Studio",
@@ -8449,7 +8449,7 @@
    "section": "ZhVoiceSelect",
    "words": 2,
    "tier": 1,
-   "uses": 1,
+   "uses": 2,
    "ambiguous": false
   },
   {
@@ -8499,8 +8499,178 @@
    "section": "VoiceModeSelect",
    "words": 2,
    "tier": 1,
-   "uses": 2,
+   "uses": 3,
    "ambiguous": true
+  },
+  {
+   "en": "Translation and voice",
+   "ko": "번역과 음성",
+   "zh": "翻譯與語音",
+   "section": "VoiceSettings",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Translation quality",
+   "ko": "번역 품질",
+   "zh": "翻譯品質",
+   "section": "VoiceSettings",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Precise (default)",
+   "ko": "정밀 (기본)",
+   "zh": "精準（預設）",
+   "section": "VoiceSettings",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Standard — faster",
+   "ko": "일반 — 더 빠름",
+   "zh": "一般 — 更快",
+   "section": "VoiceSettings",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Auto — by situation",
+   "ko": "자동 — 장면에 맞게",
+   "zh": "自動 — 依情境",
+   "section": "VoiceSettings",
+   "words": 4,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Taiwan Mandarin (ElevenLabs)",
+   "ko": "대만 중국어 (ElevenLabs)",
+   "zh": "台灣華語 (ElevenLabs)",
+   "section": "VoiceSettings",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Beijing Mandarin (OpenAI)",
+   "ko": "북경 중국어 (OpenAI)",
+   "zh": "北京普通話 (OpenAI)",
+   "section": "VoiceSettings",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Korean / English voice",
+   "ko": "한국어·영어 목소리",
+   "zh": "韓語・英語語音",
+   "section": "VoiceSettings",
+   "words": 4,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Middle-aged male (ElevenLabs)",
+   "ko": "중년 남성 (ElevenLabs)",
+   "zh": "中年男聲 (ElevenLabs)",
+   "section": "VoiceSettings",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Fallback voice · French/Thai/Khmer",
+   "ko": "대체 목소리 · 프랑스어/태국어/크메르어",
+   "zh": "替代語音 · 法語/泰語/高棉語",
+   "section": "VoiceSettings",
+   "words": 4,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": " (default)",
+   "ko": " (기본)",
+   "zh": "（預設）",
+   "section": "VoiceSettings",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Reading speed ",
+   "ko": "읽기 속도 ",
+   "zh": "朗讀速度 ",
+   "section": "VoiceSettings",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Hear Korean",
+   "ko": "한국어 들어 보기",
+   "zh": "試聽韓語",
+   "section": "VoiceSettings",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Hear Chinese",
+   "ko": "중국어 들어 보기",
+   "zh": "試聽中文",
+   "section": "VoiceSettings",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Hear the fallback voice",
+   "ko": "대체 목소리 들어 보기",
+   "zh": "試聽替代語音",
+   "section": "VoiceSettings",
+   "words": 4,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Stop",
+   "ko": "멈춤",
+   "zh": "停止",
+   "section": "VoiceSettings",
+   "words": 1,
+   "tier": 1,
+   "uses": 3,
+   "ambiguous": false
+  },
+  {
+   "en": "Korean and English use the ElevenLabs middle-aged male voice; Chinese uses the Taiwan ElevenLabs voice. French, Thai and Khmer use the fallback voice you chose above. Speed applies to every language.",
+   "ko": "한국어와 영어는 ElevenLabs 중년 남성 목소리, 중국어는 대만 ElevenLabs 목소리로 읽습니다. 프랑스어·태국어·크메르어는 위에서 고른 대체 목소리를 씁니다. 속도는 모든 언어에 함께 적용됩니다.",
+   "zh": "韓語與英語使用 ElevenLabs 中年男聲，中文使用台灣 ElevenLabs 語音。法語、泰語與高棉語使用上方所選的替代語音。速度套用於所有語言。",
+   "section": "VoiceSettings",
+   "words": 31,
+   "tier": 2,
+   "uses": 1,
+   "ambiguous": false
   },
   {
    "en": "Taiwan Mandarin · ElevenLabs",
@@ -8753,13 +8923,23 @@
    "ambiguous": false
   },
   {
+   "en": "Translate · Interpret",
+   "ko": "번역 · 통역",
+   "zh": "翻譯 · 口譯",
+   "section": "AppInner",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
    "en": "Translate",
    "ko": "번역",
    "zh": "翻譯",
    "section": "AppInner",
    "words": 1,
    "tier": 1,
-   "uses": 5,
+   "uses": 4,
    "ambiguous": false
   },
   {
@@ -9029,7 +9209,7 @@
    "section": "TransAssist",
    "words": 1,
    "tier": 1,
-   "uses": 2,
+   "uses": 1,
    "ambiguous": false
   },
   {
@@ -9130,16 +9310,6 @@
    "words": 2,
    "tier": 1,
    "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Interpreter",
-   "ko": "통역",
-   "zh": "口譯",
-   "section": "InterpreterWindow",
-   "words": 1,
-   "tier": 1,
-   "uses": 2,
    "ambiguous": false
   },
   {
@@ -9293,16 +9463,6 @@
    "ambiguous": false
   },
   {
-   "en": "Stop",
-   "ko": "멈춤",
-   "zh": "停止",
-   "section": "TranslateDock",
-   "words": 1,
-   "tier": 1,
-   "uses": 2,
-   "ambiguous": false
-  },
-  {
    "en": "Smaller",
    "ko": "작게",
    "zh": "縮小",
@@ -9336,66 +9496,6 @@
    "en": "Big screen",
    "ko": "큰 화면",
    "zh": "大畫面",
-   "section": "TranslateDock",
-   "words": 2,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Quality",
-   "ko": "품질",
-   "zh": "品質",
-   "section": "TranslateDock",
-   "words": 1,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "By situation: sentences and interpreting use Standard, long text uses Precise",
-   "ko": "장면에 맞게: 문장·통역은 일반, 긴 글은 정밀",
-   "zh": "依情境：句子與口譯用一般，長文用精準",
-   "section": "TranslateDock",
-   "words": 11,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Standard",
-   "ko": "일반",
-   "zh": "一般",
-   "section": "TranslateDock",
-   "words": 1,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": true
-  },
-  {
-   "en": "Faster and cheaper",
-   "ko": "더 빠르고 저렴",
-   "zh": "更快、更省",
-   "section": "TranslateDock",
-   "words": 3,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Precise",
-   "ko": "정밀",
-   "zh": "精準",
-   "section": "TranslateDock",
-   "words": 1,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Most accurate",
-   "ko": "가장 정확",
-   "zh": "最精準",
    "section": "TranslateDock",
    "words": 2,
    "tier": 1,
@@ -9458,46 +9558,6 @@
    "zh": "朗讀設定 · 翻譯比較 · 詞彙表",
    "section": "TranslateDock",
    "words": 6,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Speed",
-   "ko": "속도",
-   "zh": "速度",
-   "section": "TranslateDock",
-   "words": 1,
-   "tier": 1,
-   "uses": 2,
-   "ambiguous": false
-  },
-  {
-   "en": "Slow",
-   "ko": "느리게",
-   "zh": "慢",
-   "section": "TranslateDock",
-   "words": 1,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Normal",
-   "ko": "보통",
-   "zh": "正常",
-   "section": "TranslateDock",
-   "words": 1,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Fast",
-   "ko": "빠르게",
-   "zh": "快",
-   "section": "TranslateDock",
-   "words": 1,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
@@ -9848,6 +9908,16 @@
    "zh": "翻譯 →",
    "section": "InterpreterSection",
    "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Interpreter",
+   "ko": "통역",
+   "zh": "口譯",
+   "section": "InterpreterSection",
+   "words": 1,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
