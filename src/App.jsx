@@ -6834,6 +6834,33 @@ function VoiceModeSelect({ li, style }) {
       <option value="device">{tr(["This device", "기기 음성", "裝置語音"], li)}</option>
     </select></label>;
 }
+/* 읽기 속도도 두 창이 함께 쓴다 — 번역창에서 바꾸면 통역창에도 그대로 적용된다.
+   전에는 창마다 따로 저장되어, 같은 '속도'가 창에 따라 다르게 동작했다. */
+const SPEED_KEY = "gs:voice-speed";
+const getVoiceSpeed = () => { try { const v = Number(localStorage.getItem(SPEED_KEY)); return v >= 0.5 && v <= 1.5 ? v : 1; } catch { return 1; } };
+function setVoiceSpeed(v) { try { localStorage.setItem(SPEED_KEY, String(v)); } catch {} window.dispatchEvent(new Event("gs-voice-speed")); }
+function useVoiceSpeed() {
+  const [v, setV] = useState(getVoiceSpeed);
+  useEffect(() => {
+    const f = () => setV(getVoiceSpeed());
+    window.addEventListener("gs-voice-speed", f); window.addEventListener("storage", f);
+    return () => { window.removeEventListener("gs-voice-speed", f); window.removeEventListener("storage", f); };
+  }, []);
+  return [v, setVoiceSpeed];
+}
+/* 음성 설정은 이 한 곳에만 둔다 — 번역창과 통역창이 같은 설정을 쓰므로 양쪽에 따로 두지 않는다. */
+function VoiceSettings({ li }) {
+  const [speed, setSpeed] = useVoiceSpeed();
+  const t = (en, ko, zh) => tr([en, ko, zh], li);
+  return <>
+    <ZhVoiceSelect li={li} />
+    <VoiceModeSelect li={li} />
+    <label style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11 }}>{t("Speed", "속도", "速度")}
+      <select value={speed} onChange={(e) => setSpeed(+e.target.value)} style={{ fontSize: 11 }}>
+        <option value={0.85}>{t("Slow", "느리게", "慢")}</option><option value={1}>{t("Normal", "보통", "正常")}</option><option value={1.15}>{t("Fast", "빠르게", "快")}</option>
+      </select></label>
+  </>;
+}
 const VOICE_NAMES = {
   "elevenlabs-tw": ["Taiwan Mandarin · ElevenLabs", "대만 중국어 · ElevenLabs", "台灣華語 · ElevenLabs"],
   "elevenlabs-ko": ["Korean middle-aged male · ElevenLabs", "한국 중년 남성 · ElevenLabs", "韓語中年男聲 · ElevenLabs"],
@@ -6985,10 +7012,9 @@ function AppInner() {
   /* 자동 임시저장 사용 여부 — 기본은 켜짐. 끄면 새 초안을 남기지 않고
      기존 초안도 지운다. 이 기기에만 적용되는 설정이다. */
   const [autosaveOn, setAutosaveOn] = useState(true);
-  const [interpOpen, setInterpOpen] = useState(false);
-  const [transDocked, setTransDocked] = useDockPreference("gs:dock-translation");
-  const [interpDocked, setInterpDocked] = useDockPreference("gs:interpreter-docked");
-  const [transOpen, setTransOpen] = useState(false);     // 번역 띠
+  const [langTab, setLangTab] = useState(null);      // null | "trans" | "interp" — 번역·통역은 한 창의 두 칸
+  const [langDocked, setLangDocked] = useDockPreference("gs:dock-language");
+
   const [teaserOpen, setTeaserOpen] = useState(false);   // 기본판의 번역·통역 안내창
   const noteBridge = useRef(null);                       // 번역 띠 → 설명 박스 (Editor가 채운다)
   const [saveDlg, setSaveDlg] = useState(false);
@@ -7223,8 +7249,8 @@ function AppInner() {
             <div style={{ flex: 1 }} />
             {/* 사례당 한 번 쓰는 일들 — 새로 시작하고, 저장하고, 분석한다 */}
 
-            {HAS_AI && screen === "draw" && <TopChip onClick={() => setTransOpen((v) => !v)}>🌐 {tr(["Translate","번역","翻譯"], li)}</TopChip>}
-            {HAS_AI && screen === "draw" && <TopChip onClick={() => { setInterpOpen((v) => !v); }}>🎤 {tr(["Interpret","통역","口譯"], li)}</TopChip>}
+            {HAS_AI && screen === "draw" && <TopChip onClick={() => setLangTab((v) => (v === "trans" ? null : "trans"))}>🌐 {tr(["Translate","번역","翻譯"], li)}</TopChip>}
+            {HAS_AI && screen === "draw" && <TopChip onClick={() => setLangTab((v) => (v === "interp" ? null : "interp"))}>🎤 {tr(["Interpret","통역","口譯"], li)}</TopChip>}
             {!HAS_AI && screen === "draw" && <TopChip faded onClick={() => setTeaserOpen(true)}>🌐 {tr(["Translate","번역","翻譯"], li)}</TopChip>}
             {!HAS_AI && screen === "draw" && <TopChip faded onClick={() => setTeaserOpen(true)}>🎤 {tr(["Interpret","통역","口譯"], li)}</TopChip>}
             {screen === "draw" && <TopChip onClick={() => { setExitAfterSave(true); setSaveDlg(true); }}>{t("exitSave")}</TopChip>}
@@ -7299,9 +7325,9 @@ function AppInner() {
           {screen === "ref" && <RefScreen li={li} />}
         </div>
 
-        <aside className="gs-language-dock" aria-label={tr(["Translation and interpretation", "번역·통역 고정칸", "翻譯與口譯"], li)} style={!(HAS_AI && screen === "draw" && ((transOpen && transDocked) || (interpOpen && interpDocked))) ? { display: "contents" } : undefined}>
-          {HAS_AI && <TranslateDock li={li} open={transOpen && screen === "draw"} docked={transDocked} onToggleDock={() => setTransDocked(v => !v)} onClose={() => setTransOpen(false)} noteBridge={noteBridge} flash={flash} />}
-          {HAS_AI && <InterpreterWindow li={li} open={interpOpen && screen === "draw"} docked={interpDocked} onToggleDock={() => setInterpDocked(v => !v)} onClose={() => setInterpOpen(false)} />}
+        <aside className="gs-language-dock" aria-label={tr(["Translation and interpretation", "번역·통역 고정칸", "翻譯與口譯"], li)} style={!(HAS_AI && screen === "draw" && langTab && langDocked) ? { display: "contents" } : undefined}>
+          {HAS_AI && <TranslateDock li={li} open={langTab === "trans" && screen === "draw"} docked={langDocked} onToggleDock={() => setLangDocked(v => !v)} onClose={() => setLangTab(null)} onTab={setLangTab} noteBridge={noteBridge} flash={flash} />}
+          {HAS_AI && <InterpreterWindow li={li} open={langTab === "interp" && screen === "draw"} docked={langDocked} onToggleDock={() => setLangDocked(v => !v)} onClose={() => setLangTab(null)} onTab={setLangTab} />}
         </aside>
         </div>
 
@@ -7728,7 +7754,26 @@ function useFloatingPanel(key, initial) {
     return clamp(initial);
   });
   const gesture = useRef(null);
-  useEffect(() => { try { localStorage.setItem(key, JSON.stringify(rect)); } catch {} }, [rect, key]);
+  /* 같은 key를 쓰는 창(번역·통역)은 위치와 크기를 함께 쓴다 — 칸을 바꿔도 창이 제자리에 있다. */
+  const adopting = useRef(false);
+  const rectRef = useRef(rect);
+  useEffect(() => { rectRef.current = rect; }, [rect]);
+  useEffect(() => {
+    if (adopting.current) { adopting.current = false; return; }
+    try { localStorage.setItem(key, JSON.stringify(rect)); } catch {}
+    window.dispatchEvent(new CustomEvent("gs-panel-rect", { detail: { key, rect } }));
+  }, [rect, key]);
+  useEffect(() => {
+    const f = (e) => {
+      if (!e.detail || e.detail.key !== key) return;
+      const r = e.detail.rect;
+      if (["x", "y", "w", "h"].every((k) => rectRef.current[k] === r[k])) return;   // 이미 같은 자리면 그냥 둔다
+      adopting.current = true;                       // 받아 적는 것이므로 되돌려 알리지 않는다(메아리 방지)
+      setRect(r);
+    };
+    window.addEventListener("gs-panel-rect", f);
+    return () => window.removeEventListener("gs-panel-rect", f);
+  }, [key]);
   useEffect(() => { const resize = () => setRect((r) => clamp(r)); window.addEventListener("resize", resize); return () => window.removeEventListener("resize", resize); }, []);
   const begin = (e, edge) => {
     if (e.button !== 0 || (!edge && e.target.closest("button,select,input,textarea,summary"))) return;
@@ -7756,28 +7801,28 @@ function useFloatingPanel(key, initial) {
     handles: ["n", "s", "e", "w", "nw", "ne", "sw", "se"].map((edge) => <div key={edge} aria-hidden="true" data-resize={edge} onPointerDown={(e) => begin(e, edge)} style={{ position: "absolute", zIndex: 4, touchAction: "none", cursor: edge + "-resize", ...(edge.includes("n") ? { top: -4 } : {}), ...(edge.includes("s") ? { bottom: -4 } : {}), ...(edge.includes("e") ? { right: -4 } : {}), ...(edge.includes("w") ? { left: -4 } : {}), ...(edge.length === 2 ? { width: 14, height: 14 } : edge === "n" || edge === "s" ? { left: 10, right: 10, height: 8 } : { top: 10, bottom: 10, width: 8 }) }} />) };
 }
 
-/* 번역창·통역창의 처음 위치 — 둘 다 기본값으로 열면 넓은 화면에서는 나란히,
-   좁은 화면(태블릿 세로 등)에서는 위아래로 자동 배치해서 겹치지 않게 한다.
-   전에는 두 창의 기본 좌표가 고정값이라, 화면이 좁으면 겹쳐서 매번 손으로 옮겨야 했다.
-   한 번이라도 사용자가 옮기면 그 뒤로는 그 위치가 저장되어(useFloatingPanel의 key별 localStorage)
-   이 계산은 다시 쓰이지 않는다 — 다시 겹치게 하려면 기기를 초기화해야 한다. */
-function dockDefaultRect(which) {
+/* 번역·통역 창의 처음 위치. 이제 두 칸이 한 창을 함께 쓰므로 자리는 하나만 계산한다.
+   한 번이라도 사용자가 옮기면 그 위치가 저장되어(useFloatingPanel) 이 계산은 다시 쓰이지 않는다. */
+const LANG_PANEL_KEY = "gs:language-window";
+function dockDefaultRect() {
   const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
   const vh = typeof window !== "undefined" ? window.innerHeight : 800;
   const gap = 16, top = Math.min(90, Math.max(60, Math.round(vh * 0.1)));
-  const wT = 570, wI = 700; // 번역창·통역창의 원래 폭
-  if (vw >= wT + wI + gap * 3) {
-    // 넓은 화면: 나란히
-    const h = Math.min(650, vh - top - gap);
-    return which === "translate" ? { x: gap, y: top, w: wT, h: Math.min(620, h) } : { x: gap * 2 + wT, y: top, w: Math.min(wI, vw - (gap * 2 + wT) - gap), h };
-  }
-  // 좁은 화면: 위아래로. 번역이 더 자주 쓰이므로 위에 둔다.
-  const w = Math.max(320, Math.min(vw - gap * 2, 640));
-  const hEach = Math.max(260, Math.floor((vh - top - gap * 3) / 2));
-  return which === "translate" ? { x: gap, y: top, w, h: hEach } : { x: gap, y: top + hEach + gap, w, h: Math.max(260, vh - (top + hEach + gap) - gap) };
+  const w = Math.max(320, Math.min(vw - gap * 2, 720));
+  return { x: Math.max(gap, vw - w - gap), y: top, w, h: Math.min(660, vh - top - gap) };
 }
-function InterpreterWindow({ li, open, onClose, docked, onToggleDock }) {
-  const floating = useFloatingPanel("gs:interpreter-window", dockDefaultRect("interpreter"));
+/* 번역과 통역은 한 창의 두 칸이다 — 한 번에 하나만 보이므로 설정과 자리가 겹치지 않는다. */
+function LangTabs({ tab, onTab, li }) {
+  const t = (en, ko, zh) => tr([en, ko, zh], li);
+  const btn = (on) => ({ border: "none", background: on ? T.pine : "transparent", color: on ? "#fff" : T.ink2,
+    borderRadius: 7, padding: "3px 12px", fontSize: 12, fontFamily: FB, fontWeight: on ? 700 : 500, cursor: "pointer", minHeight: 28 });
+  return <div role="tablist" style={{ display: "flex", gap: 2, background: T.paper, borderRadius: 9, padding: 2 }}>
+    <button type="button" role="tab" aria-selected={tab === "trans"} onClick={() => onTab("trans")} style={btn(tab === "trans")}>🌐 {t("Translate", "번역", "翻譯")}</button>
+    <button type="button" role="tab" aria-selected={tab === "interp"} onClick={() => onTab("interp")} style={btn(tab === "interp")}>🎤 {t("Interpret", "통역", "口譯")}</button>
+  </div>;
+}
+function InterpreterWindow({ li, open, onClose, docked, onToggleDock, onTab }) {
+  const floating = useFloatingPanel(LANG_PANEL_KEY, dockDefaultRect("language"));
   const [full, setFull] = useState(false), [fold, setFold] = useState(false), [fs, setFs] = useState(3);
   const [cfg, setCfg] = useState(() => { try { return { speed: 1, autoRead: true, review: true, ...JSON.parse(localStorage.getItem("gs:interpreter-settings") || "{}") }; } catch { return { speed: 1, autoRead: true, review: true }; } });
   const setC = (patch) => setCfg((c) => { const next = { ...c, ...patch }; try { localStorage.setItem("gs:interpreter-settings", JSON.stringify(next)); } catch {} return next; });
@@ -7785,7 +7830,8 @@ function InterpreterWindow({ li, open, onClose, docked, onToggleDock }) {
   return <div className={`gs-interpreter-window${docked ? " gs-docked" : ""}`} onPointerDownCapture={floating.focus} data-noprint data-notrans style={{ position: "fixed", ...floating.style, ...(full ? { left: 0, top: 0, width: "100vw", height: "100dvh" } : {}), ...(fold ? { height: "auto" } : {}), display: open ? "flex" : "none", flexDirection: "column", background: "white", border: `1px solid ${T.rule}`, borderRadius: 10, boxShadow: "0 4px 18px #16202a38", ...(docked && !full ? dockedWindowStyle : {}) }}>
     <div onPointerDown={full || docked ? undefined : floating.move} style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, padding: 8, cursor: docked ? "default" : "move", touchAction: docked ? "auto" : "none", borderBottom: `1px solid ${T.rule}` }}>
       <DockSwitch docked={docked} onClick={() => { setFull(false); setFold(false); onToggleDock(); }} li={li} />
-      <strong style={{ flex: 1 }}>🎤 {tr(["Interpreter", "통역", "口譯"], li)}</strong>
+      <LangTabs tab="interp" onTab={onTab} li={li} />
+      <span style={{ flex: 1 }} />
       <button onClick={() => setFs((v) => Math.max(0, v - 1))}>A−</button><button onClick={() => setFs((v) => Math.min(FS_STEPS.length - 1, v + 1))}>A+</button>
       <button onClick={() => setFull((v) => !v)}>{full ? "⤡" : "⤢"}</button><button onClick={() => setFold((v) => !v)}>{fold ? "▴" : "▾"}</button><button onClick={onClose} aria-label={tr(["Close interpreter", "통역창 닫기", "關閉口譯"], li)}>✕</button>
     </div>
@@ -7796,7 +7842,7 @@ function InterpreterWindow({ li, open, onClose, docked, onToggleDock }) {
   </div>;
 }
 
-function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleDock }) {
+function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleDock, onTab }) {
   const t = (en, ko, zh) => tr([en, ko, zh], li);
   const [cfg, setCfg] = useState(() => {
     let saved = {};
@@ -7810,6 +7856,8 @@ function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleD
     try { localStorage.setItem(TRANS_KEY, JSON.stringify(n)); } catch {}
     return n;
   });
+  const [vSpeed] = useVoiceSpeed();                    // 읽기 속도는 통역창과 함께 쓴다
+  const voice = { ...cfg, speed: vSpeed };
   const [buf, setBuf] = useState("");
   const [history, setHistory] = useState([]);          // 각 메모는 원문 언어와 번역 목표를 함께 기억한다
   const [full, setFull] = useState(false);             // 큰 화면
@@ -7834,7 +7882,7 @@ function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleD
   const listRef = useRef(null);
   const sp = useSpeaker();
   const keyboard = useMemoKeyboard();
-  const floating = useFloatingPanel("gs:translation-window", dockDefaultRect("translate"));
+  const floating = useFloatingPanel(LANG_PANEL_KEY, dockDefaultRect("language"));
   const vp = useKeyboardInset(open);
   const [noteLabel, setNoteLabel] = useState("");                // 설명 박스가 붙을 대상(아버지 …)
   const [noteBusy, setNoteBusy] = useState(false);
@@ -7901,7 +7949,7 @@ function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleD
       const langs = (cfg.read === "both" ? ["en", "zh"] : [cfg.read]).filter((l) => memo.targets.includes(l));
       const e = tm.current[memo.id] || {};
       if (!langs.every((l) => e[l] || e[l + "Err"])) break;
-      langs.forEach((l) => { if (e[l]) { const r = splitSentences(e[l]); [...r.done, ...(r.tail ? [r.tail] : [])].forEach((part) => Speaker.say(part, l, cfg)); } });
+      langs.forEach((l) => { if (e[l]) { const r = splitSentences(e[l]); [...r.done, ...(r.tail ? [r.tail] : [])].forEach((part) => Speaker.say(part, l, voice)); } });
       spoken.current.add(memo.id);
     }
   }, [seqKey, tick, cfg.read]);
@@ -8012,7 +8060,7 @@ function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleD
               style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 10.5, color: T.mute, fontFamily: FB, padding: "0 2px" }}>✎</button>
             <button type="button" title={t("Copy", "복사", "複製")} onClick={() => copy(key, txt)}
               style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 10.5, color: T.mute, fontFamily: FB, padding: "0 2px" }}>{copied === key ? "✓" : "⧉"}</button>
-            <button type="button" title={t("Read aloud", "읽어 주기", "朗讀")} onClick={() => speakTTS(txt, lg, cfg)}
+            <button type="button" title={t("Read aloud", "읽어 주기", "朗讀")} onClick={() => speakTTS(txt, lg, voice)}
               style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 12, color: T.pine, padding: "0 2px" }}>🔊</button>
           </>
         )}
@@ -8033,9 +8081,8 @@ function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleD
   return (
     <div className={`gs-trans${docked ? " gs-docked" : ""}`} onPointerDownCapture={floating.focus} data-noprint data-notrans style={{ ...box, ...(docked && !full ? dockedWindowStyle : {}), display: open ? box.display : "none" }}>
       <div className="gs-trans-head" onPointerDown={full || docked ? undefined : floating.move} style={{ cursor: full || docked ? "default" : "move", touchAction: docked ? "auto" : "none", ...{ display: "flex", alignItems: "center", gap: 4, padding: "3px 6px", flexWrap: "wrap", borderBottom: fold || (!cfg.secTrans) ? `1px solid ${T.rule}` : "none" } }}>
-        <span style={{ fontFamily: FD, fontSize: 12, fontWeight: 600, color: T.ink, marginRight: 1 }}>🌐</span>
         <DockSwitch docked={docked} onClick={() => { setFull(false); setFold(false); onToggleDock(); }} li={li} />
-        <span className="gs-sec-btn-trans" style={{ fontWeight: 700 }}>{t("Translate", "번역", "翻譯")}</span>
+        <LangTabs tab="trans" onTab={onTab} li={li} />
 
         <select value={cfg.read} onChange={(e) => setRead(e.target.value)} title={t("Read aloud", "자동 읽기", "自動朗讀")}
           style={{ border: `1px solid ${T.rule}`, borderRadius: 6, padding: "1px 3px", fontSize: 10.5, fontFamily: FB, color: T.ink, background: "#fff" }}>
@@ -8127,12 +8174,7 @@ function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleD
       {!fold && (
         <details className="gs-trans-settings" open={showSet} onToggle={(e) => setShowSet(e.currentTarget.open)} style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "4px 8px", background: T.paper, borderBottom: `1px solid ${T.rule}`, fontSize: 10.5, fontFamily: FB, color: T.ink2, alignItems: "center", maxHeight: "40%", flexShrink: 0, overflowY: "auto" }}>
           <summary style={{ cursor: "pointer", fontWeight: 700, padding: 5 }}>{t("Reading settings · comparison · glossary", "읽기 설정 · 번역 비교 · 용어집", "朗讀設定 · 翻譯比較 · 詞彙表")}</summary>
-          <ZhVoiceSelect li={li} />
-          <VoiceModeSelect li={li} />
-          <label style={{ display: "flex", alignItems: "center", gap: 5 }}>{t("Speed", "속도", "速度")}
-            <select value={cfg.speed} onChange={(e) => setC({ speed: +e.target.value })} style={inp}>
-              <option value={0.85}>{t("Slow", "느리게", "慢")}</option><option value={1}>{t("Normal", "보통", "正常")}</option><option value={1.15}>{t("Fast", "빠르게", "快")}</option>
-            </select></label>
+          <VoiceSettings li={li} />
           <label style={{ display: "flex", alignItems: "center", gap: 5 }}><input type="checkbox" checked={assistOn} className="gs-assist-toggle"
             onChange={(e) => { try { localStorage.setItem("gs:assist", e.target.checked ? "on" : "off"); } catch {} setAssistOn(e.target.checked); window.dispatchEvent(new Event("gs-assist-cfg")); }} />
             {t("Show the 🌐 button in text fields (Alt+Enter always works)", "글칸에 🌐 번역 단추 표시 (Alt+Enter는 늘 됨)", "在文字欄顯示 🌐 按鈕（Alt+Enter 隨時可用）")}</label>
@@ -8226,6 +8268,8 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
   const starting = useRef(false);
   const operation = useRef(0);
   const [status, setStatus] = useState("");
+  const [vSpeed] = useVoiceSpeed();                    // 읽기 속도는 번역창과 함께 쓴다
+  const voice = { ...cfg, speed: vSpeed };
   const [inputHeight, setInputHeight] = useState(190);
   const keyboard = useMemoKeyboard();
   const playback = useSpeaker();
@@ -8258,7 +8302,7 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
         if (failed) { anyFail = true; setStatus(t("Translation failed: ", "번역 실패: ", "翻譯失敗：") + aiErrorText(err, li)); }
         parts[i] = failed ? `⚠ ${tx}` : tx;
         setTr(parts.filter((x) => x != null).join(" "));
-        if (!failed && cfg.autoRead) Speaker.say(tx, LANG_CODE[toIdx], cfg);   // 번역이 안 된 문장은 읽지 않는다
+        if (!failed && cfg.autoRead) Speaker.say(tx, LANG_CODE[toIdx], voice);   // 번역이 안 된 문장은 읽지 않는다
       },
     });
     if (!anyFail && alive.current && id === operation.current) setStatus("");
@@ -8349,7 +8393,10 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
       <div role="separator" aria-label={t("Resize speech input", "인식된 말 영역 크기 조절", "調整辨識文字區域")} aria-orientation="horizontal" tabIndex={0}
         onKeyDown={(e) => { if (e.key === "ArrowUp" || e.key === "ArrowDown") { e.preventDefault(); setInputHeight((h) => Math.max(140, Math.min(650, h + (e.key === "ArrowDown" ? 20 : -20)))); } }}
         onPointerDown={(e) => { e.preventDefault(); const target = e.currentTarget, y = e.clientY, h = inputHeight; target.setPointerCapture(e.pointerId); const move = (ev) => setInputHeight(Math.max(140, Math.min(650, h + ev.clientY - y))); const end = () => { target.removeEventListener("pointermove", move); target.removeEventListener("pointerup", end); target.removeEventListener("pointercancel", end); }; target.addEventListener("pointermove", move); target.addEventListener("pointerup", end); target.addEventListener("pointercancel", end); }}
-        style={{ height: 10, flexShrink: 0, cursor: "row-resize", touchAction: "none", background: T.rule, borderRadius: 4 }} />
+        className="gs-grip" style={{ height: 12, flexShrink: 0, cursor: "row-resize", touchAction: "none", background: "transparent",
+          display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span aria-hidden="true" style={{ width: 34, height: 3, borderRadius: 2, background: T.faint, opacity: 0.55 }} />
+      </div>
       <button type="button" onClick={onSend} disabled={busy || !!recording || !spoken.trim()}
         style={{ border: "none", borderRadius: 7, padding: "3px 0", cursor: "pointer", background: T.pine, color: "#fff", fontSize: 11, fontFamily: FB, fontWeight: 600, opacity: busy || !spoken.trim() ? 0.5 : 1 }}>
         {cfg.autoRead ? t("Translate + read aloud →", "번역 + 읽어주기 →", "翻譯並朗讀 →") : t("Translate →", "번역 →", "翻譯 →")}
@@ -8357,7 +8404,7 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
       {translated && (
         <div className="gs-interp-out" style={{ flex: 1, minHeight: 100, whiteSpace: "pre-wrap", overflowY: "auto", background: T.sageSoft, borderRadius: 7, padding: "4px 8px", fontSize: px, fontFamily: FB, color: T.ink, lineHeight: 1.25 }}>
           {translated}
-          <button type="button" onClick={() => speakTTS(translated, LANG_CODE[who === "me" ? theirLang : myLang], cfg)}
+          <button type="button" onClick={() => speakTTS(translated, LANG_CODE[who === "me" ? theirLang : myLang], voice)}
             style={{ float: "right", border: "none", background: "transparent", cursor: "pointer", fontSize: 12, color: T.pine, padding: "0 2px" }}>🔊</button>
         </div>
       )}
@@ -8375,8 +8422,6 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
         )}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-        <ZhVoiceSelect li={li} />
-        <VoiceModeSelect li={li} />
         <VoiceStatus li={li} sp={playback} />
       </div>
       <div style={{ display: "flex", flex: 1, gap: 12, flexWrap: "wrap" }}>
@@ -8388,7 +8433,7 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
       </div>
       <details style={{ flexShrink: 0, padding: 8, borderTop: `1px solid ${T.rule}` }}><summary style={{ cursor: "pointer" }}>{t("Voice settings", "통역 음성 설정", "口譯語音設定")}</summary>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 8, fontSize: 12 }}>
-          <label>{t("Speed", "속도", "速度")} <select value={cfg.speed} onChange={(e) => setC({ speed: +e.target.value })}><option value={0.85}>0.85×</option><option value={1}>1×</option><option value={1.15}>1.15×</option></select></label>
+          <VoiceSettings li={li} />
           <label><input type="checkbox" checked={cfg.autoRead} onChange={(e) => setC({ autoRead: e.target.checked })} />{t("Read after translation", "번역 후 자동 읽기", "翻譯後朗讀")}</label>
           <label><input type="checkbox" checked={cfg.review} onChange={(e) => setC({ review: e.target.checked })} />{t("Review speech before translating", "말한 내용 확인 후 번역", "確認文字後翻譯")}</label>
           <button onClick={() => Speaker.stop()}>{t("Stop audio", "읽기 멈춤", "停止朗讀")}</button>
