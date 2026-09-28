@@ -4,6 +4,7 @@
    · 프랑스어·태국어·크메르어: OpenAI.
    실패하면 다른 목소리로 바꾸지 않고 오류(reason)를 돌려준다 — 화면이 멈추고 까닭을 알린다.
    환경변수: OPENAI_API_KEY(필수) · OPENAI_TTS_MODEL · OPENAI_TTS_VOICE · ELEVENLABS_API_KEY · ELEVENLABS_MODEL
+   목소리 ID: ELEVENLABS_KOREAN_VOICE_ID · ELEVENLABS_ENGLISH_VOICE_ID · ELEVENLABS_TAIWAN_VOICE_ID (Netlify 환경변수에서만 읽는다)
    USER_ACCOUNTS가 설정되어 있으면 OPENAI_API_KEY 대신 사용자 계정별 키를 쓴다(_util.resolveAccount).  */
 const { json, parseBody, resolveAccount } = require("./_util");
 
@@ -20,11 +21,12 @@ const STYLE = {
   fr: "Parlez en français naturel, clairement et avec calme, sur un ton chaleureux adapté à un entretien de conseil.",
 };
 
-/* 목소리 ID는 비밀이 아니다. 예전 환경변수 값이 새 목소리를 덮어쓰지 않도록 코드에 고정한다. */
+/* 목소리 ID는 코드에 적지 않고 Netlify 환경변수에서 읽는다.
+   (코드에 적으면 Netlify의 비밀값 검사가 빌드를 막는다.) 환경변수 이름은 대문자로 정확히 맞춘다. */
 const EL_VOICES = {
-  tw: { id: "4aW8bNY2tSD8eaHmuXZ0", lang: "zh", tag: "elevenlabs-tw" },   // 대만 중국어
-  ko: { id: "67eoqQDbo98f8JNCcLy9", lang: "ko", tag: "elevenlabs-ko" },   // 한국 중년 남성
-  en: { id: "pWUJ2q2eTeW0CTfJswPE", lang: "en", tag: "elevenlabs-en" },   // 영어 중년 남성
+  tw: { env: "ELEVENLABS_TAIWAN_VOICE_ID", lang: "zh", tag: "elevenlabs-tw" },   // 대만 중국어
+  ko: { env: "ELEVENLABS_KOREAN_VOICE_ID", lang: "ko", tag: "elevenlabs-ko" },   // 한국 중년 남성
+  en: { env: "ELEVENLABS_ENGLISH_VOICE_ID", lang: "en", tag: "elevenlabs-en" },  // 영어 중년 남성
 };
 /* flash는 첫 소리까지 가장 빠른 모델이다. 억양은 목소리가 정하므로 대만 목소리를 그대로 유지한다. */
 const EL_MODEL = (process.env.ELEVENLABS_MODEL || "").trim() || "eleven_flash_v2_5";
@@ -32,8 +34,10 @@ const EL_MODEL = (process.env.ELEVENLABS_MODEL || "").trim() || "eleven_flash_v2
 async function elevenVoice(v, text, speed) {
   const key = (process.env.ELEVENLABS_API_KEY || "").trim();
   if (!key) return json(503, { error: "ELEVENLABS_API_KEY is not set", reason: "missing_key" });
+  const voiceId = (process.env[v.env] || "").trim();
+  if (!voiceId) return json(503, { error: `${v.env} is not set`, reason: "missing_voice_id" });
   try {
-    const resp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(v.id)}?output_format=mp3_44100_64`, {
+    const resp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_64`, {
       method: "POST",
       headers: { "xi-api-key": key, "Content-Type": "application/json", Accept: "audio/mpeg" },
       body: JSON.stringify({ text, model_id: EL_MODEL, language_code: v.lang, voice_settings: { stability: 0.5, similarity_boost: 0.8, speed: Math.min(1.2, Math.max(0.7, speed)) } }),
