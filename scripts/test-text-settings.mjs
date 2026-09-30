@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import { normalizeTextSettings } from '../src/textSettings.js';
+const legacy={textScale:1.6,people:[{id:'a',name:'할아버지'},{id:'b',name:'할머니'}],notes:[{id:'n',size:12,text:'설명'}],story:{problem:'내용'},cardPos:{story:{x:1,y:2}}};
+const before=JSON.stringify(legacy), migrated=normalizeTextSettings(legacy);
+assert.equal(migrated.people[0].nameSize,20.8);
+assert.equal(migrated.notes[0].size,19.200000000000003);
+assert.equal(JSON.stringify(legacy),before,'Import migration must not mutate the source');
+assert.equal(normalizeTextSettings(migrated),migrated,'Old scale must apply only once');
+const changed={...migrated,people:migrated.people.map(p=>p.id==='a'?{...p,nameSize:8}:p),storyFontSizes:{problem:14}};
+const reopened=normalizeTextSettings(JSON.parse(JSON.stringify(changed)));
+assert.equal(reopened.people[0].nameSize,8);
+assert.equal(reopened.people[1].nameSize,20.8);
+assert.equal(reopened.notes[0].size,migrated.notes[0].size);
+assert.equal(reopened.storyFontSizes.problem,14);
+assert.deepEqual(reopened.cardPos,legacy.cardPos);
+assert.deepEqual(reopened.story,legacy.story);
+console.log('Text settings: legacy appearance, independent sizes and save/reopen passed');

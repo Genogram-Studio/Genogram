@@ -1,3 +1,4 @@
+import { normalizeTextSettings, textSize } from "./textSettings.js";
 import PrintReport from "./PrintReport.jsx";
 import { normalizeUnions } from "./unionCleanup.js";
 import React, { useState, useRef, useMemo, useEffect, useCallback, createContext, useContext } from "react";
@@ -1728,6 +1729,7 @@ function tlgLayout(doc, scale, win) {
 
 /* ══ person node ════════════════════════════════════════════════ */
 function PersonNode({ p, selected, detail, li, onDown, attrChips, events, ts = 1 }) {
+  const nameSize=textSize(p.nameSize,13*ts), infoSize=textSize(p.infoSize,11*ts), memoSize=textSize(p.noteSize,10*ts);
   const stroke = selected ? T.gold : T.ink;
   const sw = selected ? 2.6 : 2;
   const clip = p.gender === "female" ? "clipCircle" : p.gender === "male" ? "clipSquare" : "clipDiamond";
@@ -1740,7 +1742,7 @@ function PersonNode({ p, selected, detail, li, onDown, attrChips, events, ts = 1
 
   if (p.preg) {
     return (
-      <g transform={`translate(${p.x},${p.y})`} onPointerDown={onDown} style={{ cursor: "grab" }}>
+      <g data-person-id={p.id} transform={`translate(${p.x},${p.y})`} onPointerDown={onDown} style={{ cursor: "grab" }}>
         <circle r={34} fill="transparent" />
         {p.preg === "pregnancy" && <path d="M 0 -12 L 12 10 L -12 10 Z" fill={T.ink} />}
         {p.preg === "miscarriage" && <circle r={8.5} fill={T.ink} />}
@@ -1768,13 +1770,13 @@ function PersonNode({ p, selected, detail, li, onDown, attrChips, events, ts = 1
     const kind = tr(OBJ_KINDS[p.objKind] || OBJ_KINDS.other, li);
     const oLines = detail ? wrapText(p.note, 15).slice(0, 4) : [];
     return (
-      <g transform={`translate(${p.x},${p.y})`} onPointerDown={onDown} style={{ cursor: "grab" }}>
+      <g data-person-id={p.id} transform={`translate(${p.x},${p.y})`} onPointerDown={onDown} style={{ cursor: "grab" }}>
         <rect x={-36} y={-34} width={72} height={68} fill="transparent" />
         {selected && <rect x={-34} y={-26} width={68} height={52} rx={14} fill={T.goldSoft} stroke={T.gold} strokeWidth={1} />}
         <rect x={-26} y={-19} width={52} height={38} rx={10} fill={T.ink2} stroke={selected ? T.gold : T.ink} strokeWidth={selected ? 2.4 : 1.8} />
         <text y={4} textAnchor="middle" fontSize={kind.length > 6 ? 8 : 10} fill="#fff" fontFamily={FB} fontWeight={600}>{kind}</text>
-        <text y={36} textAnchor="middle" fontSize={12.5} fontWeight={600} fill={T.ink} fontFamily={FB}>{p.name || kind}</text>
-        {oLines.map((l, i) => <text key={i} y={51 + i * 13} textAnchor="middle" fontSize={10} fill={T.ink2} fontFamily={FB}>{l}</text>)}
+        <text y={36} textAnchor="middle" fontSize={nameSize} fontWeight={600} fill={T.ink} fontFamily={FB}>{p.name || kind}</text>
+        {oLines.map((l, i) => <text key={i} y={51 + i * memoSize*1.4} textAnchor="middle" fontSize={memoSize} fill={T.ink2} fontFamily={FB}>{l}</text>)}
       </g>
     );
   }
@@ -1785,13 +1787,13 @@ function PersonNode({ p, selected, detail, li, onDown, attrChips, events, ts = 1
   if (p.addi) flags.push([tr(["Addiction", "중독", "成癮"], li), T.amber]);
   /* 글자를 키우면 한 줄에 담기는 글자 수가 줄어야 상자 폭이 그대로 유지되고,
      늘어난 줄 수만큼만 아래로 길어진다 — 옆 사람 쪽으로 번지지 않는다. */
-  const roleLines = detail ? wrapText(p.role, Math.max(6, Math.round(14 / ts))) : [];
-  const noteLines = detail ? wrapText(p.note, Math.max(7, Math.round(16 / ts))).slice(0, 6) : [];
-  const sp = spacingScale(ts);           // 세로 줄 간격 — 글자보다 적게 늘려 그만큼만 벌어지게
-  let y = 44 * sp;
+  const roleLines = detail ? wrapText(p.role, Math.max(6, Math.round(14 / (infoSize/11)))) : [];
+  const noteLines = detail ? wrapText(p.note, Math.max(7, Math.round(16 / (memoSize/10)))).slice(0, 6) : [];
+  const sp = Math.max(nameSize/13,infoSize/11);           // 세로 줄 간격 — 글자보다 적게 늘려 그만큼만 벌어지게
+  let y = 30 + nameSize*1.1;
 
   return (
-    <g transform={`translate(${p.x},${p.y})`} onPointerDown={onDown} style={{ cursor: "grab" }}>
+    <g data-person-id={p.id} transform={`translate(${p.x},${p.y})`} onPointerDown={onDown} style={{ cursor: "grab" }}>
       {/* 실제 기호보다 훨씬 넓게 터치 인식 영역을 둔다. 축소된 화면에서는
          손가락이 기호를 정확히 짚기 어려워, 못 짚으면 기호 대신 배경이
          눌려 화면 전체가 끌려갔다. 눈에는 보이지 않지만 훨씬 넉넉한
@@ -1814,7 +1816,7 @@ function PersonNode({ p, selected, detail, li, onDown, attrChips, events, ts = 1
       )}
       {p.deceased && <path d="M -26 -26 L 26 26 M 26 -26 L -26 26" stroke={T.ink} strokeWidth={2} strokeLinecap="round" />}
       {age !== null && !p.deceased && (
-        <text y={5} textAnchor="middle" fontSize={15} fontFamily={FM} fill={p.phys || p.ment || p.addi ? "#fff" : T.ink}>{age}</text>
+        <text y={5} textAnchor="middle" fontSize={infoSize*15/11} fontFamily={FM} fill={p.phys || p.ment || p.addi ? "#fff" : T.ink}>{age}</text>
       )}
       {/* 수준 표지 — 기호 오른쪽에 작은 칩으로 쌓는다. 색으로 뜻을
           나르지 않는다. 관계선 다섯 갈래의 색과 부딪히기 때문이다.
@@ -1832,12 +1834,12 @@ function PersonNode({ p, selected, detail, li, onDown, attrChips, events, ts = 1
           ))}
         </g>
       )}
-      {p.birth && <text x={-31} y={-27} textAnchor="end" fontSize={10.5 * ts} fill={T.ink2} fontFamily={FM}>{`'${String(p.birth).slice(2)}`}</text>}
-      {p.death && <text x={31} y={-27} fontSize={10.5 * ts} fill={T.ink2} fontFamily={FM}>{`'${String(p.death).slice(2)}`}</text>}
-      <text y={y} textAnchor="middle" fontSize={13 * ts} fontWeight={600} fill={T.ink} fontFamily={FB}
+      {p.birth && <text x={-31} y={-27} textAnchor="end" fontSize={infoSize*10.5/11} fill={T.ink2} fontFamily={FM}>{`'${String(p.birth).slice(2)}`}</text>}
+      {p.death && <text x={31} y={-27} fontSize={infoSize*10.5/11} fill={T.ink2} fontFamily={FM}>{`'${String(p.death).slice(2)}`}</text>}
+      <text y={y} textAnchor="middle" fontSize={nameSize} fontWeight={600} fill={T.ink} fontFamily={FB}
         stroke="#fff" strokeWidth={4.5} strokeLinejoin="round" paintOrder="stroke">{personName(p, li)}</text>
       {roleLines.map((l, i) => (
-        <text key={"r" + i} y={(y += 14 * sp)} textAnchor="middle" fontSize={11 * ts} fill={T.sage} fontFamily={FB} fontWeight={500}
+        <text key={"r" + i} y={(y += infoSize*1.35)} textAnchor="middle" fontSize={infoSize} fill={T.sage} fontFamily={FB} fontWeight={500}
           stroke="#fff" strokeWidth={4} strokeLinejoin="round" paintOrder="stroke">{l}</text>
       ))}
       {detail && flags.length > 0 && (
@@ -1859,9 +1861,9 @@ function PersonNode({ p, selected, detail, li, onDown, attrChips, events, ts = 1
       )}
       {noteLines.length > 0 && (
         <g transform={`translate(0,${(y += 10 * sp)})`}>
-          <rect x={-64} y={0} width={128} height={noteLines.length * 13 * sp + 9} rx={4} fill="#FFFCF3" stroke="#E9DFC7" strokeWidth={1} />
-          <rect x={-64} y={0} width={2.5} height={noteLines.length * 13 * sp + 9} fill={T.amber} />
-          {noteLines.map((l, i) => <text key={i} x={-58} y={13 * sp + i * 13 * sp} fontSize={10 * ts} fill={T.ink2} fontFamily={FB}>{l}</text>)}
+          <rect x={-64} y={0} width={128} height={noteLines.length * memoSize*1.4 + 9} rx={4} fill="#FFFCF3" stroke="#E9DFC7" strokeWidth={1} />
+          <rect x={-64} y={0} width={2.5} height={noteLines.length * memoSize*1.4 + 9} fill={T.amber} />
+          {noteLines.map((l, i) => <text key={i} x={-58} y={memoSize*1.4 + i * memoSize*1.4} fontSize={memoSize} fill={T.ink2} fontFamily={FB}>{l}</text>)}
         </g>
       )}
       {events && events.length > 0 && (
@@ -1869,8 +1871,8 @@ function PersonNode({ p, selected, detail, li, onDown, attrChips, events, ts = 1
           {events.map((e, i) => (
             <g key={e.id} transform={`translate(0,${y + 18 * sp + i * 14 * sp})`}>
               <rect x={-56} y={-8 * ts} width={112} height={13 * ts} rx={6} fill="#F4F0FA" stroke="#B8A9D8" strokeWidth={0.8} opacity={0.92} />
-              <text x={-48} y={1.5 * ts} fontSize={8.5 * ts} fontFamily={FM} fill="#6A5A93" fontWeight={700}>{e.year}</text>
-              <text x={-28} y={1.5 * ts} fontSize={8.5 * ts} fontFamily={FB} fill={T.ink2}>{(e.title||"").slice(0,Math.max(6,Math.round(14/ts)))}{(e.title||"").length>Math.round(14/ts)?"…":""}</text>
+              <text x={-48} y={1.5 * ts} fontSize={infoSize*8.5/11} fontFamily={FM} fill="#6A5A93" fontWeight={700}>{e.year}</text>
+              <text x={-28} y={1.5 * ts} fontSize={infoSize*8.5/11} fontFamily={FB} fill={T.ink2}>{(e.title||"").slice(0,Math.max(6,Math.round(14/ts)))}{(e.title||"").length>Math.round(14/ts)?"…":""}</text>
             </g>
           ))}
         </g>
@@ -1881,12 +1883,13 @@ function PersonNode({ p, selected, detail, li, onDown, attrChips, events, ts = 1
 
 /* ══ couple line + children ═════════════════════════════════════ */
 function personClearance(p, detail) {
-  let h = 58;                                    // base gap under the symbol
-  if (!detail || !p) return h;
-  const ts = CURRENT_TEXT_SCALE, sp = spacingScale(ts);   // 글자 배율만큼 아래 여유도 함께 늘려 선이 글자를 가리지 않게
-  if (p.role) h += 14 * sp;
-  if (p.phys || p.ment || p.addi) h += 16 * sp;
-  if (p.note) h += Math.min(6, wrapText(p.note, Math.max(7, Math.round(16 / ts))).length) * 13 * sp + 20 * sp;
+  if(!p)return 58;
+  const name=textSize(p.nameSize,13), info=textSize(p.infoSize,11), memo=textSize(p.noteSize,10);
+  let h=Math.max(58,30+name*1.1+12);
+  if(!detail)return h;
+  if(p.role)h+=wrapText(p.role,Math.max(6,Math.round(14/(info/11)))).length*info*1.35;
+  if(p.phys||p.ment||p.addi)h+=16*Math.max(name/13,info/11);
+  if(p.note)h+=Math.min(6,wrapText(p.note,Math.max(7,Math.round(16/(memo/10)))).length)*memo*1.4+20;
   return h;
 }
 function UnionEdge({ u, a, b, kids, level = 0, detail, selected, onSelect, li = 1 }) {
@@ -1962,7 +1965,7 @@ function UnionEdge({ u, a, b, kids, level = 0, detail, selected, onSelect, li = 
       <path d={d} fill="none" stroke={col} strokeWidth={selected ? 2.6 : 1.9} strokeDasharray={meta.dash || undefined} />
 
       {marks}
-      {label && <text x={mid} y={yLine - 7} textAnchor="middle" fontSize={10.5} fontFamily={FM} fill={T.ink2}>{label}</text>}
+      {label && <text x={mid} y={yLine - 7} textAnchor="middle" fontSize={textSize(u.fontSize,10.5)} fontFamily={FM} fill={T.ink2}>{label}</text>}
       {paths}
       <path d={d} fill="none" stroke="transparent" strokeWidth={16} style={{ cursor: "pointer" }}
         onPointerDown={(e) => { e.stopPropagation(); onSelect(u.id); }} />
@@ -2125,7 +2128,7 @@ function BondEdge({ bond, a, b, li, selected, selSeg, onSelect, people, bonds=[]
             {bondGlyphParts(meta, p1, p2, col, `s${i}-`, segBow, pillText)}
             {cap && (
               <g transform={`translate(${lx},${ly})`}>
-                <text y={2} textAnchor="middle" fontSize={9.5} fill={col} fontFamily={FB}
+                <text y={2} textAnchor="middle" fontSize={textSize(bond.fontSize,9.5)} fill={col} fontFamily={FB}
                   fontWeight={active ? 700 : 600} letterSpacing="-.01em"
                   stroke="#fff" strokeWidth={3.6} strokeLinejoin="round" paintOrder="stroke">{cap}</text>
               </g>
@@ -2284,58 +2287,42 @@ function familyStoryBlocks(doc, li) {
     cx.ring && { key: "ring", head: tr(S.ctxRing, li), body: tr(cx.ring, li) },
     cx.note && { key: "note", head: tr(S.ctxRead, li), body: cx.note, editable: true },
   ].filter(Boolean);
-  return { storyBlocks, ctxBlocks };
+  return { storyBlocks: storyBlocks.map(b=>({...b,fontPt:textSize(doc.storyFontSizes?.[b.key],10)})), ctxBlocks: ctxBlocks.map(b=>({...b,fontPt:textSize(doc.contextFontSizes?.[b.key],10)})) };
 }
 /* 이야기·맥락 상자 한 벌 — 기본은 붙어 한 상자, '나누기'를 누르면
    가진 블록 수만큼 독립된 상자로 흩어진다. 옮긴 자리는 doc.cardPos에,
    나뉜 상태는 doc.storySplit/ctxSplit에 남아 다음에 열어도 그대로다. */
-function StoryCardGroup({ kind, doc, li, blocks, baseX, baseY, title, accent, split, viewK, onMove, onSplit, onEdit }) {
-  if (!blocks.length) return null;
-  const t = (en, ko, zh) => tr([en, ko, zh], li);
-  const posOf = (key) => (doc.cardPos || {})[key];
-  const draggable = !!onMove;
-  if (!split || blocks.length < 2) {
-    const key = kind;
-    const p = posOf(key) || { x: baseX, y: baseY };
-    return (
-      <SideCard x={p.x} y={p.y} w={300} title={title} blocks={blocks} accent={accent}
-        draggable={draggable} viewK={viewK}
-        onMove={draggable ? (dx, dy) => onMove(key, { x: p.x + dx, y: p.y + dy }) : null}
-        onDoubleClick={onEdit ? () => onEdit(kind, blocks.filter((b) => b.editable), { x: p.x, y: p.y }) : null}
-        onToggleSplit={blocks.length > 1 && onSplit ? () => onSplit(kind, true) : null}
-        splitLabel={t("Split", "나누기", "拆開")} />
-    );
-  }
-  return blocks.map((b, i) => {
-    const key = `${kind}:${b.key}`;
-    const fallback = { x: baseX, y: baseY + i * 140 };
-    const p = posOf(key) || fallback;
-    return (
-      <SideCard key={b.key} x={p.x} y={p.y} w={230} title={b.head} blocks={[{ body: b.body }]} accent={accent}
-        draggable={draggable} viewK={viewK}
-        onMove={draggable ? (dx, dy) => onMove(key, { x: p.x + dx, y: p.y + dy }) : null}
-        onDoubleClick={onEdit && b.editable ? () => onEdit(kind, [b], { x: p.x, y: p.y }) : null}
-        onToggleSplit={i === 0 && onSplit ? () => onSplit(kind, false) : null}
-        splitLabel={t("Merge", "합치기", "合併")} />
-    );
+function TextSizePicker({label,value,onChange}) {
+  return <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,fontSize:12,color:T.ink2}}>{label}
+    <select aria-label={label} value={value} onChange={e=>onChange(+e.target.value)} style={{...inputStyle,width:82}}>
+      {[...new Set([6,8,9,10,11,12,13,14,16,18,20,24,28,32,36,48,value])].sort((a,b)=>a-b).map(n=><option key={n} value={n}>{Math.round(n*10)/10}</option>)}
+    </select>
+  </label>;
+}
+function storyCardLayout(w,blocks,fontSize=13.333,title="") {
+  const titleSize=fontSize+1.5, titleUnit=/[\uac00-\ud7a3\u3400-\u9fff]/.test(title)?titleSize:titleSize*.6;
+  const titleLines=wrapText(title,Math.max(3,Math.floor((w-32)/titleUnit)));
+  let cy=Math.max(1,titleLines.length)*titleSize*1.4+12;const rows=[];
+  blocks.forEach((b,bi)=>{
+    if(b.head)rows.push({t:b.head,y:(cy+=fontSize*1.5),head:true});
+    const unit=/[\uac00-\ud7a3\u3400-\u9fff]/.test(b.body||"")?fontSize:fontSize*.6;
+    wrapText(b.body,Math.max(4,Math.floor((w-32)/unit))).forEach(t=>rows.push({t,y:(cy+=fontSize*1.5)}));
+  });
+  return {rows,titleLines,h:cy+18};
+}
+function StoryCardGroup({kind,doc,blocks,baseX,baseY,accent,viewK,onMove,onEdit}) {
+  const origin=doc.cardPos?.[kind]||{x:baseX,y:baseY};let nextY=origin.y;
+  return blocks.map(b=>{
+    const key=`${kind}:${b.key}`,fontSize=(b.fontPt||10)*4/3;
+    const p=doc.cardPos?.[key]||{x:origin.x,y:nextY};
+    nextY=Math.max(nextY,p.y+storyCardLayout(300,[{body:b.body}],fontSize,b.head).h+20);
+    return <SideCard key={key} x={p.x} y={p.y} w={300} title={b.head} blocks={[{body:b.body}]} accent={accent} fontSize={fontSize}
+      draggable={!!onMove} viewK={viewK} onMove={onMove?(dx,dy)=>onMove(key,{x:p.x+dx,y:p.y+dy}):null}
+      onDoubleClick={onEdit&&b.editable?()=>onEdit(kind,[b],p):null}/>;
   });
 }
-function SideCard({ x, y, w, title, blocks, accent, draggable, viewK, onMove, onDoubleClick, onToggleSplit, splitLabel }) {
-  let cy = 30;
-  const rows = [];
-  /* 한글은 영문보다 훨씬 넓게 찍힌다(한 글자가 거의 정사각형). 그런데
-     줄바꿈 계산은 영문 기준 폭(6.4px)으로만 되어 있어서, 한글 문장은
-     실제로 상자보다 훨씬 긴 줄로 잘못 끊겨 오른쪽 바깥으로 흘러
-     넘쳤다. 한글이 섞여 있으면 글자당 너비를 그에 맞게 넓혀 잡는다. */
-  const charsPerLine = (text) => {
-    const wKo = /[\uac00-\ud7a3\u3400-\u9fff]/.test(text || "") ? 11.5 : 6.4;
-    return Math.max(4, Math.floor((w - 28) / wKo));
-  };
-  blocks.forEach((b, bi) => {
-    if (b.head) { cy += bi === 0 ? 0 : 8; rows.push({ t: b.head, y: (cy += 15), head: true }); }
-    wrapText(b.body, charsPerLine(b.body)).forEach((l) => rows.push({ t: l, y: (cy += 14) }));
-  });
-  const h = cy + 16;
+function SideCard({ x, y, w, title, blocks, accent, draggable, viewK, onMove, onDoubleClick, onToggleSplit, splitLabel, fontSize=13.333 }) {
+  const {rows,titleLines,h}=storyCardLayout(w,blocks,fontSize,title);
   /* 캔버스 위에서 직접 옮기기 — 화면 픽셀 이동량을 viewK로 나눠 그림 좌표로
      바꾼다. 옮기는 동안 계속 doc에 반영해 눈으로 보며 옮길 수 있게 한다. */
   const onPointerDown = draggable && onMove ? (e) => {
@@ -2358,14 +2345,14 @@ function SideCard({ x, y, w, title, blocks, accent, draggable, viewK, onMove, on
     target.addEventListener("pointerup", up);
   } : undefined;
   return (
-    <g transform={`translate(${x},${y})`} onPointerDown={onPointerDown}
+    <g data-story-card="true" transform={`translate(${x},${y})`} onPointerDown={onPointerDown}
       onDoubleClick={onDoubleClick ? (e) => { e.stopPropagation(); onDoubleClick(); } : undefined}
       style={draggable ? { cursor: "grab" } : undefined}>
       <rect x={0} y={0} width={w} height={h} rx={10} fill="#fff" stroke={T.rule} strokeWidth={1.4} />
       <rect x={0} y={0} width={4} height={h} rx={2} fill={accent} />
-      <text x={16} y={22} fontSize={13} fontFamily={FD} fontWeight={700} fill={T.ink}>{title}</text>
+      {titleLines.map((line,i)=><text key={i} x={16} y={fontSize+9+i*(fontSize+1.5)*1.4} fontSize={fontSize+1.5} fontFamily={FD} fontWeight={700} fill={T.ink}>{line}</text>)}
       {rows.map((r, i) => (
-        <text key={i} x={16} y={r.y} fontSize={r.head ? 11.5 : 11} fontFamily={FB} fontWeight={r.head ? 600 : 400}
+        <text key={i} x={16} y={r.y} fontSize={fontSize} fontFamily={FB} fontWeight={r.head ? 600 : 400}
           fill={r.head ? accent : T.ink2}>{r.t}</text>
       ))}
       {onToggleSplit && (
@@ -3237,6 +3224,12 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
     const list = ppl || doc.people;
     if (!list.length && !(doc.notes||[]).length && !(doc.ink||[]).length) { setView({ x: r.width / 2, y: 150, k: 1 }); return; }
     const bounds=docBounds({...doc,people:list},{tl:showTL});
+    if(showStory && !ppl)svgRef.current.querySelectorAll('[data-story-card]').forEach(card=>{
+      const rect=card.getBBox(),m=card.transform.baseVal.consolidate()?.matrix;
+      const x=(m?.e||0)+rect.x-20,y=(m?.f||0)+rect.y-20;
+      const right=Math.max(bounds.x+bounds.w,x+rect.width+40),bottom=Math.max(bounds.y+bounds.h,y+rect.height+40);
+      bounds.x=Math.min(bounds.x,x);bounds.y=Math.min(bounds.y,y);bounds.w=right-bounds.x;bounds.h=bottom-bounds.y;
+    });
     const bx=bounds.x,by=bounds.y,bw=Math.max(760,bounds.w),bh=bounds.h;
     const uh = r.height - 80;
     const k = Math.max(0.28, Math.min(1.05, Math.min(r.width / bw, uh / bh)));
@@ -3713,12 +3706,12 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
   const onCardSplit = (kind, split) => setDoc((d) => ({ ...d, [kind === "story" ? "storySplit" : "ctxSplit"]: split }));
   const onCardEdit = (kind, fields, pos) => setCardEditing({
     kind, x: pos.x, y: pos.y,
-    fields: fields.map((f) => ({ key: f.key, label: f.head, value: (kind === "story" ? doc.story : doc.context)?.[f.key] || "" })),
+    fields: fields.map((f) => ({ key: f.key, label: f.head, fontPt: f.fontPt||10, value: (kind === "story" ? doc.story : doc.context)?.[f.key] || "" })),
   });
   const commitCardEdit = () => {
     const ed = cardEditing; setCardEditing(null);
     if (!ed) return;
-    setDoc((d) => ({ ...d, [ed.kind]: { ...(d[ed.kind] || {}), ...Object.fromEntries(ed.fields.map((f) => [f.key, f.value])) } }));
+    setDoc((d) => ({ ...d, [ed.kind]: { ...(d[ed.kind] || {}), ...Object.fromEntries(ed.fields.map((f) => [f.key, f.value])) }, [ed.kind==="story"?"storyFontSizes":"contextFontSizes"]: {...d[ed.kind==="story"?"storyFontSizes":"contextFontSizes"], ...Object.fromEntries(ed.fields.map(f=>[f.key,f.fontPt]))} }));
   };
 
   const onTextDown = (e) => {
@@ -4207,7 +4200,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
               그리는 동안 늘 손이 가는 것이 아니므로 '더보기'로 접는다.
               관계선은 접지 않는다 — 가장 자주 쓰는 도구이기 때문. */}
           <Group>
-            {[["ink", t("menuInk")], ["layer", t("menuLayer")], ["text", t("menuText")], ["attrScale", t("attrTitle")],
+            {[["ink", t("menuInk")], ["layer", t("menuLayer")], ["attrScale", t("attrTitle")],
               ...(tlg ? [["view", t("menuView")]] : [])].map(([k, l], i) => (
               <GBtn key={k} first={i === 0} active={menu === k}
                 onClick={() => {if(k==="ink"&&tlg){setTlg(false);setTimeout(fitView,0);}setMenu(v=>v===k?null:k);}}>
@@ -4396,19 +4389,6 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                   {t("unpinAll")}
                 </GBtn>
               </Group>
-            </>)}
-
-            {menu === "text" && (<>
-              <Group>
-                {[[1, tr(["Normal", "보통", "正常"], li)], [1.3, tr(["Large", "크게", "大"], li)], [1.6, tr(["Extra large", "아주 크게", "特大"], li)]].map(([v, l], i) => (
-                  <GBtn key={v} first={i === 0} active={Math.abs((doc.textScale || 1) - v) < 0.01}
-                    onClick={() => setDoc((d) => ({ ...d, textScale: v }))}>{l}</GBtn>
-                ))}
-              </Group>
-              <input type="range" min={TEXT_SCALE_MIN} max={TEXT_SCALE_MAX} step={0.05} value={doc.textScale || 1}
-                onChange={(e) => setDoc((d) => ({ ...d, textScale: +e.target.value }))} style={{ width: 90, flexShrink: 0, accentColor: T.pine }} />
-              <span style={{ fontSize: 11, fontFamily: FM, color: T.mute, minWidth: 30 }}>{(doc.textScale || 1).toFixed(2)}×</span>
-              <span style={{ fontSize: 11, color: T.mute, fontFamily: FB, flex: "1 1 220px", minWidth: 160 }}>{t("textScaleHint")}</span>
             </>)}
 
             {menu === "view" && (<>
@@ -4641,7 +4621,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
           {/* 선택한 설명 박스의 글씨를 바로 키우고 줄이는 작은 단추(기본은 12). 오른쪽 위에 붙는다. */}
           {selNote && !editing && (() => {
             const b = noteBounds(selNote);
-            const SIZES = [10, 12, 14, 16, 18, 22, 28];
+            const SIZES = [6, 8, 9, 10, 12, 14, 16, 18, 22, 28, 32, 36, 48];
             const cur = selNote.size || 12;
             const idx = SIZES.includes(cur) ? SIZES.indexOf(cur) : Math.max(0, SIZES.findIndex((z) => z >= cur));
             const bump = (d) => updateNote({ size: SIZES[Math.min(SIZES.length - 1, Math.max(0, idx + d))] });
@@ -4684,13 +4664,14 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                 background: "#fff", border: `1.5px solid ${T.pine}`, borderRadius: 8, padding: 10,
                 boxShadow: "0 6px 20px rgba(22,32,42,.2)", display: "flex", flexDirection: "column", gap: 8 }}>
               {cardEditing.fields.map((f, i) => (
-                <label key={f.key} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <div key={f.key} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                   <span style={{ fontSize: 10.5, fontFamily: FB, color: T.mute, fontWeight: 600 }}>{f.label}</span>
+                  <TextSizePicker label={tr(["Text size (pt)","글자 크기 (pt)","字級 (pt)"],li)} value={f.fontPt} onChange={size=>setCardEditing(v=>({...v,fields:v.fields.map((x,xi)=>xi===i?{...x,fontPt:size}:x)}))}/>
                   <textarea autoFocus={i === 0} value={f.value} rows={3}
                     onChange={(e) => setCardEditing((v) => ({ ...v, fields: v.fields.map((x, xi) => xi === i ? { ...x, value: e.target.value } : x) }))}
                     style={{ border: `1px solid ${T.rule}`, borderRadius: 5, padding: "5px 7px", resize: "vertical",
                       fontSize: 12.5, fontFamily: FB, color: T.ink, lineHeight: 1.5 }} />
-                </label>
+                </div>
               ))}
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
                 <button type="button" onClick={() => setCardEditing(null)}
@@ -4756,7 +4737,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                 </Field>
                 <div className="grid grid-cols-2" style={{gap:12}}>
                   <Field label={tr(['Text size','글자 크기','文字大小'],li)}><select value={selNote.size||12} onChange={e=>updateNote({size:+e.target.value})} style={inputStyle}>
-                    {[10,12,14,16,18,22,28].map(n=><option key={n} value={n}>{n}</option>)}</select></Field>
+                    {[...new Set([6,8,9,10,12,14,16,18,22,28,selNote.size||12])].sort((a,b)=>a-b).map(n=><option key={n} value={n}>{n}</option>)}</select></Field>
                   <Field label={tr(['Color','색상','顏色'],li)}><input aria-label={tr(['Note color','설명 색상','說明顏色'],li)} type="color" value={selNote.color||T.ink2} onChange={e=>updateNote({color:e.target.value})} style={{...inputStyle,height:40}}/></Field>
                 </div>
                 <div style={{display:'flex',justifyContent:'flex-end',margin:'-4px 0 8px'}}>
@@ -4844,6 +4825,9 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                 <div className="flex flex-col" style={{ gap: 12 }}>
                   <SectionTitle>{t("personRec")}</SectionTitle>
                   <Field label={t("nameF")}><input value={selPerson.name} placeholder={selPerson.tkey ? tr(TEMPLATE_NAMES[selPerson.tkey], li) : ""} onChange={(e) => updatePerson(selPerson.id, { name: e.target.value })} style={inputStyle} /></Field>
+                  <TextSizePicker label={tr(["Name text size","이름 글자 크기","姓名字級"],li)} value={textSize(selPerson.nameSize,13)} onChange={v=>updatePerson(selPerson.id,{nameSize:v})}/>
+                  <TextSizePicker label={tr(["Information text size","정보 글자 크기","資料字級"],li)} value={textSize(selPerson.infoSize,11)} onChange={v=>updatePerson(selPerson.id,{infoSize:v})}/>
+                  <TextSizePicker label={tr(["Memo text size","인물 메모 글자 크기","人物備註字級"],li)} value={textSize(selPerson.noteSize,10)} onChange={v=>updatePerson(selPerson.id,{noteSize:v})}/>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                     {[["male", `□ ${t("male")}`], ["female", `○ ${t("female")}`]].map(([g, l]) => (
                       <Btn key={g} active={selPerson.gender === g} onClick={() => updatePerson(selPerson.id, { gender: g })}>{l}</Btn>
@@ -5078,6 +5062,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
               {tab === "detail" && selUnion && (
                 <div className="flex flex-col" style={{ gap: 12 }}>
                   <SectionTitle>{t("couple")}</SectionTitle>
+                  <TextSizePicker label={tr(["Relationship text size","관계 정보 글자 크기","關係資料字級"],li)} value={textSize(selUnion.fontSize,10.5)} onChange={v=>setU({fontSize:v})}/>
                   <div style={{ fontSize: 13 }}>{nameOf(selUnion.a)} — {nameOf(selUnion.b)}</div>
                   <Field label={t("coupleState")}>
                     <div className="flex" style={{ gap: 4, flexWrap: "wrap" }}>
@@ -5117,6 +5102,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                 return (
                   <div className="flex flex-col" style={{ gap: 12 }}>
                     <SectionTitle>{t("relType")}</SectionTitle>
+                    <TextSizePicker label={tr(["Relationship label size","관계 이름 글자 크기","關係名稱字級"],li)} value={textSize(selBond.fontSize,9.5)} onChange={v=>setB({fontSize:v})}/>
                     <div style={{ fontSize: 13 }}>{nameOf(selBond.a)} <span style={{ color: bondColor(currentSegment(selBond).type) }}>→</span> {nameOf(selBond.b)}</div>
                     {(() => {
                       const same = dupGroups.find((g) => g.some((b) => b.id === selBond.id));
@@ -5257,6 +5243,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                   {[["problem", t("stProblem")], ["history", t("stHistory")], ["strengths", t("stStrength")], ["note", t("stNote")]].map(([k, l]) => (
                     <Field key={k} label={l}>
                       <textarea rows={3} value={doc.story[k] || ""} onChange={(e) => setDoc((d) => ({ ...d, story: { ...d.story, [k]: e.target.value } }))} style={{ ...inputStyle, resize: "vertical" }} />
+                      <TextSizePicker label={l+" · "+tr(["Text size (pt)","글자 크기 (pt)","字級 (pt)"],li)} value={textSize(doc.storyFontSizes?.[k],10)} onChange={v=>setDoc(d=>({...d,storyFontSizes:{...d.storyFontSizes,[k]:v}}))}/>
                     </Field>
                   ))}
                 </div>
@@ -6484,7 +6471,7 @@ const noteLines = text => {
   });
 };
 function noteBounds(n) {
-  const size=(n.size||12)*CURRENT_TEXT_SCALE, lines=noteLines(n.text);
+  const size=textSize(n.size,12), lines=noteLines(n.text);
   const widthOf=line=>(TK_RE.test(line)?graphemes(line):[...line]).reduce((sum,ch)=>sum+(/[\uac00-\ud7a3\u3400-\u9fff]/.test(ch)?1:/[\u1780-\u17FF]/.test(ch)?.85:/[\u0E00-\u0E7F]/.test(ch)?.65:.62)*size,0);
   const width=Math.max(64,...lines.map(widthOf))+24;
   const steps=lines.map(line=>TK_RE.test(line)?1.75:1.4);          // 태국어·크메르어 줄은 부호가 쌓이므로 줄 간격을 넓힌다
@@ -7187,7 +7174,7 @@ async function translateSeq(text, fromLabel, toLabel, { concurrency = 3, onSente
 /* 예전에 저장한 파일에는 새로 생긴 칸이 없다. 열 때 기본값을 채워
    넣어, 오래된 사례가 열리지 않는 일이 없게 한다. */
 const withDefaults = (d) => normalizeUnions({
-  ...emptyDoc(), ...d,
+  ...emptyDoc(), ...normalizeTextSettings(d),
   attrLayers: (d && d.attrLayers && d.attrLayers.length)
     ? d.attrLayers : emptyDoc().attrLayers,
 });
@@ -7201,9 +7188,10 @@ const emptyDoc = () => ({
      예시 이름을 채운 채로 시작한다 — 마음에 안 들면 지우거나 고쳐
      쓰면 된다. */
   attrLayers: [{ id: "a1", name: "" }, { id: "a2", name: "" }, { id: "a3", name: "" }],
+  textSettingsVersion: 2, storyFontSizes: {}, contextFontSizes: {},
   textScale: 1,   // 글자 배율 — 이름·역할·메모·사건·설명박스에 함께 적용
   cardPos: {},     // 이야기·맥락 상자를 직접 옮기면 그 자리를 여기에 기억해 둔다. 키: "story" | "story:problem" 등
-  storySplit: false,   // 이야기 상자를 현재문제·가족사·강점·메모 네 칸으로 나눠 보여줄지
+  storySplit: true,   // 이야기 상자를 현재문제·가족사·강점·메모 네 칸으로 나눠 보여줄지
   ctxSplit: false,      // 맥락 상자도 마찬가지
 });
 /* 자아분화는 보웬의 0–100 척도를 넷으로 나눠 읽는다 */
@@ -9379,7 +9367,7 @@ function ExportScreen({ doc, setDoc, li, exportJSON, flash, onBackToDraw }) {
   };
   const reviewBlocks = [
     { head: t("checklist"), body: CHECKS.map((c,i) => `${checks[i] ? "●" : "○"} ${tr(c,li)}`).join("\n") },
-    ...QUESTIONS.map((q,i) => ({head: `${i+1}. ${t("questions")}`,body:tr(q,li)+(q[3] ? `  (${q[3]})` : "")})),
+    ...QUESTIONS.map((q,i) => ({head: "",body:`${i+1}. ${tr(q,li)}`+(q[3] ? `  (${q[3]})` : "")})),
   ];
   return (
     <div style={{flex:1,minHeight:0,overflowY:"auto"}}>
@@ -9392,7 +9380,7 @@ function ExportScreen({ doc, setDoc, li, exportJSON, flash, onBackToDraw }) {
             <label>{tr(["Paper","용지","紙張"],li)} <select value={paper} onChange={e=>choosePaper(e.target.value)}>
               {Object.entries(PAPER_SIZES).map(([k,v])=><option key={k} value={k}>{tr(v.label,li)}</option>)}
             </select></label>
-            <label>{tr(["Print font size","인쇄 글자 크기","列印字級"],li)} <select value={minPt} onChange={e=>setMinPt(+e.target.value)}>
+            <label>{tr(["Review text size","점검·질문 글자 크기","檢核與提問字級"],li)} <select value={minPt} onChange={e=>setMinPt(+e.target.value)}>
               {[10,11,12,14].map(n=><option key={n} value={n}>{n}pt</option>)}
             </select></label>
             <Group>
@@ -9403,8 +9391,8 @@ function ExportScreen({ doc, setDoc, li, exportJSON, flash, onBackToDraw }) {
           </div>
           <p style={{fontSize:13,lineHeight:1.65,color:T.mute}}>
             {tr(["Genogram → Family story → Checklist and questions. This panel is not printed.","가계도 → 가족 전체 이야기 → 작성 점검·함께 읽을 질문 순서입니다. 이 안내 상자는 인쇄되지 않습니다.","家系圖 → 全家敘事 → 檢核與提問。此說明不列印。"],li)}<br/>
-            {report && tr([`Body ${minPt}pt · diagram at least ${report.smallestPt.toFixed(1)}pt · ${report.totalPages} pages.`, `본문 ${minPt}pt · 가계도 최소 ${report.smallestPt.toFixed(1)}pt · 총 ${report.totalPages}쪽`, `內文 ${minPt}pt · 圖中文字至少 ${report.smallestPt.toFixed(1)}pt · 共 ${report.totalPages} 頁。`],li)}
-            {report?.diagramPages>1 && <><br/>{tr(["The diagram continues across overlapping sheets to keep text readable.","가계도가 커서 여러 쪽에 이어집니다. 경계 부분을 겹쳐 인쇄해 내용이 빠지지 않도록 했습니다.","家系圖分成數頁，邊界重疊以保留內容。"],li)}</>}
+            {report && tr([`Genogram and annotations fit on one sheet · ${report.totalPages} pages.`, `가계도는 설명 상자까지 한 장에 맞춤 · 총 ${report.totalPages}쪽`, `家系圖與說明框縮放至一頁 · 共 ${report.totalPages} 頁。`],li)}
+
           </p>
           <div className="flex" style={{gap:8,flexWrap:"wrap"}}>
             <Btn tone="solid" disabled={!report} onClick={printReport}>{tr(["Print","인쇄","列印"],li)}</Btn>

@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
+import { textSize } from "../src/textSettings.js";
 
 const source = fs.readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 const a = source.indexOf("/* 태국어·크메르어는 낱말 사이에");
@@ -12,7 +13,7 @@ const noteB = source.indexOf("function noteBounds(n) {");
 const noteC = source.indexOf("\nfunction unionAnchor", noteB);
 assert.ok(noteA >= 0 && noteB > noteA && noteC > noteB);
 const T = {};
-const ctx = vm.createContext({ T });
+const ctx = vm.createContext({ T, textSize });
 vm.runInContext(`${source.slice(a, b)}\n${source.slice(noteA, noteC)}\nthis.wrapText = wrapText; this.noteBounds = noteBounds; this.noteLines = noteLines; this.graphemes = graphemes;`, ctx);
 const { wrapText, noteBounds, noteLines, graphemes } = ctx;
 

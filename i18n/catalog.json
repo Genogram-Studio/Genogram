@@ -4353,26 +4353,6 @@
    "ambiguous": false
   },
   {
-   "en": "Split",
-   "ko": "나누기",
-   "zh": "拆開",
-   "section": "StoryCardGroup",
-   "words": 1,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Merge",
-   "ko": "합치기",
-   "zh": "合併",
-   "section": "StoryCardGroup",
-   "words": 1,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
    "en": "Linked to people in the genogram",
    "ko": "가계도 인물과 자동 연동",
    "zh": "自動連結家系圖人物",
@@ -4533,36 +4513,6 @@
    "ambiguous": false
   },
   {
-   "en": "Normal",
-   "ko": "보통",
-   "zh": "正常",
-   "section": "Editor",
-   "words": 1,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Large",
-   "ko": "크게",
-   "zh": "大",
-   "section": "Editor",
-   "words": 1,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Extra large",
-   "ko": "아주 크게",
-   "zh": "特大",
-   "section": "Editor",
-   "words": 2,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
    "en": " people",
    "ko": "명",
    "zh": " 人",
@@ -4650,6 +4600,16 @@
    "words": 2,
    "tier": 1,
    "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Text size (pt)",
+   "ko": "글자 크기 (pt)",
+   "zh": "字級 (pt)",
+   "section": "Editor",
+   "words": 3,
+   "tier": 1,
+   "uses": 2,
    "ambiguous": false
   },
   {
@@ -4923,6 +4883,36 @@
    "ambiguous": false
   },
   {
+   "en": "Name text size",
+   "ko": "이름 글자 크기",
+   "zh": "姓名字級",
+   "section": "Editor",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Information text size",
+   "ko": "정보 글자 크기",
+   "zh": "資料字級",
+   "section": "Editor",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Memo text size",
+   "ko": "인물 메모 글자 크기",
+   "zh": "人物備註字級",
+   "section": "Editor",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
    "en": "Twins",
    "ko": "쌍둥이",
    "zh": "雙胞胎",
@@ -4968,6 +4958,26 @@
    "zh": "同卵女",
    "section": "Editor",
    "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Relationship text size",
+   "ko": "관계 정보 글자 크기",
+   "zh": "關係資料字級",
+   "section": "Editor",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Relationship label size",
+   "ko": "관계 이름 글자 크기",
+   "zh": "關係名稱字級",
+   "section": "Editor",
+   "words": 3,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
@@ -10393,9 +10403,9 @@
    "ambiguous": false
   },
   {
-   "en": "Print font size",
-   "ko": "인쇄 글자 크기",
-   "zh": "列印字級",
+   "en": "Review text size",
+   "ko": "점검·질문 글자 크기",
+   "zh": "檢核與提問字級",
    "section": "ExportScreen",
    "words": 3,
    "tier": 1,
@@ -10408,16 +10418,6 @@
    "zh": "家系圖 → 全家敘事 → 檢核與提問。此說明不列印。",
    "section": "ExportScreen",
    "words": 13,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "The diagram continues across overlapping sheets to keep text readable.",
-   "ko": "가계도가 커서 여러 쪽에 이어집니다. 경계 부분을 겹쳐 인쇄해 내용이 빠지지 않도록 했습니다.",
-   "zh": "家系圖分成數頁，邊界重疊以保留內容。",
-   "section": "ExportScreen",
-   "words": 10,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
