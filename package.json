@@ -10,7 +10,7 @@
     "check": "node scripts/check.mjs",
     "build:all": "node scripts/pack.mjs",
     "glossary": "node scripts/gen-glossary.mjs",
-    "test": "node scripts/test-input.mjs && node scripts/test-language.mjs && node scripts/test-wrap.mjs && node scripts/test-glossary.mjs && node scripts/test-accounts.mjs && node scripts/i18n-extract.mjs --quiet && node scripts/i18n-report.mjs --strict",
+    "test": "node scripts/test-save-flow.mjs && node scripts/test-unions.mjs && node scripts/test-input.mjs && node scripts/test-language.mjs && node scripts/test-wrap.mjs && node scripts/test-glossary.mjs && node scripts/test-accounts.mjs && node scripts/i18n-extract.mjs --quiet && node scripts/i18n-report.mjs --strict",
     "i18n": "node scripts/i18n-extract.mjs",
     "i18n:report": "node scripts/i18n-report.mjs"
   },

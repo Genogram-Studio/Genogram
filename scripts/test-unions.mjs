@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import { normalizeUnions } from '../src/unionCleanup.js';
+const u = { id: 'u1', a: 'father', b: 'mother', type: 'married', mYear: '', eYear: '' };
+const doc = { people: [{ id: 'child', puid: 'u5' }], unions: Array.from({length:5}, (_, i) => ({...u, id:`u${i+1}`})), notes: [{anchor:{kind:'union',id:'u3',t:.5},anchors:[{kind:'union',id:'u5'}]}], textScale:1.5, story:{problem:'Keep this story'}, cardPos:{story:{x:30,y:40}} };
+const original = JSON.stringify(doc);
+const clean = normalizeUnions(doc);
+assert.equal(clean.unions.length,1, 'Five identical stacked lines must become one');
+assert.equal(clean.people[0].puid,'u1');
+assert.equal(clean.notes[0].anchor.id,'u1');
+assert.equal(clean.notes[0].anchors[0].id,'u1');
+assert.equal(JSON.stringify(doc),original,'Opening must not mutate stored input');
+assert.equal(clean.story,doc.story); assert.equal(clean.cardPos,doc.cardPos); assert.equal(clean.textScale,1.5);
+assert.equal(normalizeUnions(clean),clean);
+const distinct = {...doc,unions:[u,{...u,id:'u2',mYear:'2000'},{...u,id:'u3',type:'divorced'},{...u,id:'u4',b:'other'},{...u,id:'u5',note:'Keep metadata'}]};
+assert.equal(normalizeUnions(distinct).unions.length,5,'Dates, types, other partners and metadata must survive');
+assert.equal(normalizeUnions({...doc,unions:[u,{...u,id:'u2',a:u.b,b:u.a}]}).unions.length,1);
+console.log('Union cleanup: all tests passed');

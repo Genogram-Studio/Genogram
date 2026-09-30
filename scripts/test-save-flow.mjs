@@ -1,0 +1,16 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const source = fs.readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+const start = source.indexOf('  const saveCase = async');
+const end = source.indexOf('  /* 저장하지 않은 작업', start);
+const ctx = {doc:{title:'Test',people:[]},cases:[],Blob,patchDoc:()=>ctx.patched++,patched:0,flash:()=>{},t:x=>x,uid:()=> 'case-1',storage:null,saveAs:async()=> 'cancelled',setCases:()=>{}};
+vm.createContext(ctx);vm.runInContext(source.slice(start,end)+'\nthis.save = saveCase;',ctx);
+assert.equal(await ctx.save('New name','file'),'cancelled');assert.equal(ctx.patched,0,'Cancelled file save must not mark work as saved');
+ctx.saveAs = async()=> 'downloaded';
+assert.equal(await ctx.save('New name','file'),'downloaded');assert.equal(ctx.patched,1);
+ctx.storage = {set:async()=>{throw Error('quota');}};
+assert.equal(await ctx.save('New name','browser'),'failed');assert.equal(ctx.patched,1);
+ctx.storage = {set:async()=>{}};
+assert.equal(await ctx.save('New name','browser'),'saved');assert.equal(ctx.patched,2);
+console.log('Save outcomes: cancellation, failure and success passed');

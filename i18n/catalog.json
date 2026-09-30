@@ -1,6 +1,6 @@
 {
  "generatedFrom": "src/App.jsx",
- "count": 1044,
+ "count": 1065,
  "items": [
   {
    "en": "Genogram Studio",
@@ -123,13 +123,13 @@
    "ambiguous": false
   },
   {
-   "en": "Case name (use a pseudonym)",
-   "ko": "가계도 이름 (가명)",
-   "zh": "個案名稱（請用化名）",
+   "en": "File",
+   "ko": "파일",
+   "zh": "檔案",
    "section": "S",
-   "words": 5,
+   "words": 1,
    "tier": 1,
-   "uses": 1,
+   "uses": 2,
    "ambiguous": false
   },
   {
@@ -139,7 +139,27 @@
    "section": "S",
    "words": 1,
    "tier": 1,
+   "uses": 3,
+   "ambiguous": false
+  },
+  {
+   "en": "Print & Export",
+   "ko": "인쇄·내보내기",
+   "zh": "列印與匯出",
+   "section": "S",
+   "words": 3,
+   "tier": 1,
    "uses": 2,
+   "ambiguous": false
+  },
+  {
+   "en": "Case name (use a pseudonym)",
+   "ko": "가계도 이름 (가명)",
+   "zh": "個案名稱（請用化名）",
+   "section": "S",
+   "words": 5,
+   "tier": 1,
+   "uses": 1,
    "ambiguous": false
   },
   {
@@ -498,6 +518,26 @@
    "zh": "顯示/隱藏",
    "section": "S",
    "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Text size",
+   "ko": "글자 크기",
+   "zh": "文字大小",
+   "section": "S",
+   "words": 2,
+   "tier": 1,
+   "uses": 2,
+   "ambiguous": false
+  },
+  {
+   "en": "Enlarges names, roles, notes, events and note boxes together. Spacing grows only enough to avoid overlap.",
+   "ko": "이름·역할·메모·사건·설명박스를 함께 키웁니다. 간격은 겹치지 않을 만큼만 따라 늘어납니다.",
+   "zh": "同時放大姓名、角色、備註、事件與說明框。間距僅隨之微調，避免重疊。",
+   "section": "S",
+   "words": 16,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
@@ -1208,16 +1248,6 @@
    "zh": "虛線生命線與 ≈ 年份為排版估計值。臨床解讀前請先輸入已確認的年份。",
    "section": "S",
    "words": 17,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "File",
-   "ko": "파일",
-   "zh": "檔案",
-   "section": "S",
-   "words": 1,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
@@ -4323,6 +4353,26 @@
    "ambiguous": false
   },
   {
+   "en": "Split",
+   "ko": "나누기",
+   "zh": "拆開",
+   "section": "StoryCardGroup",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Merge",
+   "ko": "합치기",
+   "zh": "合併",
+   "section": "StoryCardGroup",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
    "en": "Linked to people in the genogram",
    "ko": "가계도 인물과 자동 연동",
    "zh": "自動連結家系圖人物",
@@ -4483,6 +4533,36 @@
    "ambiguous": false
   },
   {
+   "en": "Normal",
+   "ko": "보통",
+   "zh": "正常",
+   "section": "Editor",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Large",
+   "ko": "크게",
+   "zh": "大",
+   "section": "Editor",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Extra large",
+   "ko": "아주 크게",
+   "zh": "特大",
+   "section": "Editor",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
    "en": " people",
    "ko": "명",
    "zh": " 人",
@@ -4591,16 +4671,6 @@
    "tier": 1,
    "uses": 1,
    "ambiguous": true
-  },
-  {
-   "en": "Text size",
-   "ko": "글자 크기",
-   "zh": "文字大小",
-   "section": "Editor",
-   "words": 2,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
   },
   {
    "en": "Color",
@@ -4840,6 +4910,16 @@
    "words": 4,
    "tier": 1,
    "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Open a case file",
+   "ko": "가계도 파일 열기",
+   "zh": "開啟個案檔案",
+   "section": "Editor",
+   "words": 4,
+   "tier": 1,
+   "uses": 2,
    "ambiguous": false
   },
   {
@@ -10023,16 +10103,6 @@
    "ambiguous": false
   },
   {
-   "en": "Open a case file",
-   "ko": "가계도 파일 열기",
-   "zh": "開啟個案檔案",
-   "section": "Home",
-   "words": 4,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
    "en": "Unsaved work from last time",
    "ko": "저장하지 않고 남은 작업이 있습니다",
    "zh": "上次未儲存的作業",
@@ -10253,11 +10323,151 @@
    "ambiguous": false
   },
   {
+   "en": "A4 · Portrait",
+   "ko": "A4 · 세로",
+   "zh": "A4 · 直式",
+   "section": "PAPER_SIZES",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "A4 · Landscape",
+   "ko": "A4 · 가로",
+   "zh": "A4 · 橫式",
+   "section": "PAPER_SIZES",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "A3 · Portrait",
+   "ko": "A3 · 세로",
+   "zh": "A3 · 直式",
+   "section": "PAPER_SIZES",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "A3 · Landscape",
+   "ko": "A3 · 가로",
+   "zh": "A3 · 橫式",
+   "section": "PAPER_SIZES",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
    "en": "Export failed — try SVG",
    "ko": "내보내기 실패 — SVG를 사용해 보세요",
    "zh": "輸出失敗 — 請改用 SVG",
    "section": "ExportScreen",
    "words": 5,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Print check",
+   "ko": "인쇄 확인",
+   "zh": "列印檢查",
+   "section": "ExportScreen",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Paper",
+   "ko": "용지",
+   "zh": "紙張",
+   "section": "ExportScreen",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Print font size",
+   "ko": "인쇄 글자 크기",
+   "zh": "列印字級",
+   "section": "ExportScreen",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Genogram → Family story → Checklist and questions. This panel is not printed.",
+   "ko": "가계도 → 가족 전체 이야기 → 작성 점검·함께 읽을 질문 순서입니다. 이 안내 상자는 인쇄되지 않습니다.",
+   "zh": "家系圖 → 全家敘事 → 檢核與提問。此說明不列印。",
+   "section": "ExportScreen",
+   "words": 13,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "The diagram continues across overlapping sheets to keep text readable.",
+   "ko": "가계도가 커서 여러 쪽에 이어집니다. 경계 부분을 겹쳐 인쇄해 내용이 빠지지 않도록 했습니다.",
+   "zh": "家系圖分成數頁，邊界重疊以保留內容。",
+   "section": "ExportScreen",
+   "words": 10,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Print",
+   "ko": "인쇄",
+   "zh": "列印",
+   "section": "ExportScreen",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Save PDF",
+   "ko": "PDF 저장",
+   "zh": "儲存 PDF",
+   "section": "ExportScreen",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Genogram PNG",
+   "ko": "가계도 PNG",
+   "zh": "家系圖 PNG",
+   "section": "ExportScreen",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Genogram SVG",
+   "ko": "가계도 SVG",
+   "zh": "家系圖 SVG",
+   "section": "ExportScreen",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "For PDF, choose Save as PDF in the print dialog. Use the selected paper, 100% scale, and turn off browser headers and footers.",
+   "ko": "PDF 저장은 인쇄 창에서 ‘PDF로 저장’을 선택하세요. 선택한 용지와 배율 100%를 사용하고, 브라우저의 머리글·바닥글은 꺼 주세요.",
+   "zh": "在列印視窗選擇儲存 PDF，使用所選紙張、100% 比例並關閉瀏覽器頁首頁尾。",
+   "section": "ExportScreen",
+   "words": 23,
    "tier": 1,
    "uses": 1,
    "ambiguous": false

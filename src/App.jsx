@@ -1,3 +1,5 @@
+import PrintReport from "./PrintReport.jsx";
+import { normalizeUnions } from "./unionCleanup.js";
 import React, { useState, useRef, useMemo, useEffect, useCallback, createContext, useContext } from "react";
 import { HAS_AI, EDITION, BUILD, FULL_URL } from "./edition.js";
 import { LANGS, BASE_LANG_COUNT, packText, langIndexOf } from "./locales.js";   // 화면 언어 목록과 언어팩(locales/xx.json)
@@ -2265,21 +2267,60 @@ function TriangleShape({ tri, pts, li, selected, onSelect }) {
 /* 이야기·맥락 블록 — 그림 안(편집 중 사이드카드)과 뒷장 인쇄, 두 군데서 같이 쓴다. */
 function familyStoryBlocks(doc, li) {
   const st = doc.story || {}, cx = doc.context || { vert: [], horiz: [] };
+  /* key는 doc.story.problem 같은 실제 저장 필드 이름과 같다 — cardPos에서
+     "story:problem" 식으로 그 블록만 따로 찾을 때, 그리고 나눈 상자에서
+     고치면 어느 필드를 고치는지 알 때 쓴다. context.vert/horiz는 고정
+     문구 배열이라 여기서 직접 고칠 수 있는 자유 글 필드가 아니므로
+     inline 편집 대상에서는 뺀다(note는 자유 글이라 포함). */
   const storyBlocks = [
-    st.problem && { head: tr(S.stProblem, li), body: st.problem },
-    st.history && { head: tr(S.stHistory, li), body: st.history },
-    st.strengths && { head: tr(S.stStrength, li), body: st.strengths },
-    st.note && { head: tr(S.stNote, li), body: st.note },
+    st.problem && { key: "problem", head: tr(S.stProblem, li), body: st.problem, editable: true },
+    st.history && { key: "history", head: tr(S.stHistory, li), body: st.history, editable: true },
+    st.strengths && { key: "strengths", head: tr(S.stStrength, li), body: st.strengths, editable: true },
+    st.note && { key: "note", head: tr(S.stNote, li), body: st.note, editable: true },
   ].filter(Boolean);
   const ctxBlocks = [
-    cx.vert?.length && { head: tr(S.ctxVert, li), body: cx.vert.map((v) => tr(v, li)).join(" · ") },
-    cx.horiz?.length && { head: tr(S.ctxHoriz, li), body: cx.horiz.map((v) => tr(v, li)).join(" · ") },
-    cx.ring && { head: tr(S.ctxRing, li), body: tr(cx.ring, li) },
-    cx.note && { head: tr(S.ctxRead, li), body: cx.note },
+    cx.vert?.length && { key: "vert", head: tr(S.ctxVert, li), body: cx.vert.map((v) => tr(v, li)).join(" · ") },
+    cx.horiz?.length && { key: "horiz", head: tr(S.ctxHoriz, li), body: cx.horiz.map((v) => tr(v, li)).join(" · ") },
+    cx.ring && { key: "ring", head: tr(S.ctxRing, li), body: tr(cx.ring, li) },
+    cx.note && { key: "note", head: tr(S.ctxRead, li), body: cx.note, editable: true },
   ].filter(Boolean);
   return { storyBlocks, ctxBlocks };
 }
-function SideCard({ x, y, w, title, blocks, accent }) {
+/* 이야기·맥락 상자 한 벌 — 기본은 붙어 한 상자, '나누기'를 누르면
+   가진 블록 수만큼 독립된 상자로 흩어진다. 옮긴 자리는 doc.cardPos에,
+   나뉜 상태는 doc.storySplit/ctxSplit에 남아 다음에 열어도 그대로다. */
+function StoryCardGroup({ kind, doc, li, blocks, baseX, baseY, title, accent, split, viewK, onMove, onSplit, onEdit }) {
+  if (!blocks.length) return null;
+  const t = (en, ko, zh) => tr([en, ko, zh], li);
+  const posOf = (key) => (doc.cardPos || {})[key];
+  const draggable = !!onMove;
+  if (!split || blocks.length < 2) {
+    const key = kind;
+    const p = posOf(key) || { x: baseX, y: baseY };
+    return (
+      <SideCard x={p.x} y={p.y} w={300} title={title} blocks={blocks} accent={accent}
+        draggable={draggable} viewK={viewK}
+        onMove={draggable ? (dx, dy) => onMove(key, { x: p.x + dx, y: p.y + dy }) : null}
+        onDoubleClick={onEdit ? () => onEdit(kind, blocks.filter((b) => b.editable), { x: p.x, y: p.y }) : null}
+        onToggleSplit={blocks.length > 1 && onSplit ? () => onSplit(kind, true) : null}
+        splitLabel={t("Split", "나누기", "拆開")} />
+    );
+  }
+  return blocks.map((b, i) => {
+    const key = `${kind}:${b.key}`;
+    const fallback = { x: baseX, y: baseY + i * 140 };
+    const p = posOf(key) || fallback;
+    return (
+      <SideCard key={b.key} x={p.x} y={p.y} w={230} title={b.head} blocks={[{ body: b.body }]} accent={accent}
+        draggable={draggable} viewK={viewK}
+        onMove={draggable ? (dx, dy) => onMove(key, { x: p.x + dx, y: p.y + dy }) : null}
+        onDoubleClick={onEdit && b.editable ? () => onEdit(kind, [b], { x: p.x, y: p.y }) : null}
+        onToggleSplit={i === 0 && onSplit ? () => onSplit(kind, false) : null}
+        splitLabel={t("Merge", "합치기", "合併")} />
+    );
+  });
+}
+function SideCard({ x, y, w, title, blocks, accent, draggable, viewK, onMove, onDoubleClick, onToggleSplit, splitLabel }) {
   let cy = 30;
   const rows = [];
   /* 한글은 영문보다 훨씬 넓게 찍힌다(한 글자가 거의 정사각형). 그런데
@@ -2295,8 +2336,31 @@ function SideCard({ x, y, w, title, blocks, accent }) {
     wrapText(b.body, charsPerLine(b.body)).forEach((l) => rows.push({ t: l, y: (cy += 14) }));
   });
   const h = cy + 16;
+  /* 캔버스 위에서 직접 옮기기 — 화면 픽셀 이동량을 viewK로 나눠 그림 좌표로
+     바꾼다. 옮기는 동안 계속 doc에 반영해 눈으로 보며 옮길 수 있게 한다. */
+  const onPointerDown = draggable && onMove ? (e) => {
+    if (e.target.closest?.("[data-card-btn]")) return;   // 나누기/합치기 단추는 드래그와 겹치지 않게
+    e.stopPropagation(); e.preventDefault();
+    const startX = e.clientX, startY = e.clientY;
+    const target = e.currentTarget;
+    target.setPointerCapture(e.pointerId);
+    let moved = false;
+    const move = (ev) => {
+      moved = true;
+      onMove((ev.clientX - startX) / (viewK || 1), (ev.clientY - startY) / (viewK || 1));
+    };
+    const up = (ev) => {
+      target.releasePointerCapture(e.pointerId);
+      target.removeEventListener("pointermove", move);
+      target.removeEventListener("pointerup", up);
+    };
+    target.addEventListener("pointermove", move);
+    target.addEventListener("pointerup", up);
+  } : undefined;
   return (
-    <g transform={`translate(${x},${y})`}>
+    <g transform={`translate(${x},${y})`} onPointerDown={onPointerDown}
+      onDoubleClick={onDoubleClick ? (e) => { e.stopPropagation(); onDoubleClick(); } : undefined}
+      style={draggable ? { cursor: "grab" } : undefined}>
       <rect x={0} y={0} width={w} height={h} rx={10} fill="#fff" stroke={T.rule} strokeWidth={1.4} />
       <rect x={0} y={0} width={4} height={h} rx={2} fill={accent} />
       <text x={16} y={22} fontSize={13} fontFamily={FD} fontWeight={700} fill={T.ink}>{title}</text>
@@ -2304,6 +2368,14 @@ function SideCard({ x, y, w, title, blocks, accent }) {
         <text key={i} x={16} y={r.y} fontSize={r.head ? 11.5 : 11} fontFamily={FB} fontWeight={r.head ? 600 : 400}
           fill={r.head ? accent : T.ink2}>{r.t}</text>
       ))}
+      {onToggleSplit && (
+        <foreignObject data-card-btn x={w - 62} y={6} width={56} height={20}>
+          <button type="button" data-card-btn data-noprint onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onToggleSplit(); }}
+            style={{ width: "100%", height: 18, fontSize: 9.5, fontFamily: FB, color: T.mute,
+              background: "#fff", border: `1px solid ${T.rule}`, borderRadius: 5, cursor: "pointer" }}>{splitLabel}</button>
+        </foreignObject>
+      )}
     </g>
   );
 }
@@ -2745,14 +2817,15 @@ function TimeLineGenogram({ doc, scale, win, sel, li, onSelectPerson, onSelectBo
 /* ══ shared drawing layers ══════════════════════════════════════ */
 const NOOP = () => {};
 function Layers({ doc, li, detail, sel, showStory, showTL, tlg, tlgScale, tlgWin, stdInset, hhDraft, pending,
-  onMove, viewK, vis, msel, onPerson = NOOP, onUnion = NOOP, onBond = NOOP, onHH = NOOP, onTri = NOOP, onDown = null }) {
+  onMove, viewK, vis, msel, onPerson = NOOP, onUnion = NOOP, onBond = NOOP, onHH = NOOP, onTri = NOOP, onDown = null,
+  onCardMove = null, onCardSplit = null, onCardEdit = null }) {
   if (tlg) {
     return <TlgScene doc={doc} li={li} sel={sel} scale={tlgScale} win={tlgWin} stdInset={stdInset}
       onMove={onMove} viewK={viewK} onPerson={onPerson} onBond={onBond} onUnion={onUnion} />;
   }
-  return <StandardScene doc={doc} li={li} detail={detail} sel={sel} showStory={showStory} showTL={showTL}
+  return <StandardScene doc={doc} li={li} detail={detail} sel={sel} showStory={showStory} showTL={showTL} viewK={viewK}
     hhDraft={hhDraft} pending={pending} vis={vis} msel={msel} onPerson={onPerson} onUnion={onUnion} onBond={onBond}
-    onHH={onHH} onTri={onTri} onDown={onDown} />;
+    onHH={onHH} onTri={onTri} onDown={onDown} onCardMove={onCardMove} onCardSplit={onCardSplit} onCardEdit={onCardEdit} />;
 }
 
 /* ══ 표준 가계도 화면 — 편집 화면과 타임라인의 구조 창에서 함께 쓴다 ══ */
@@ -2784,8 +2857,9 @@ function attrChipsOf(p, doc, li) {
   });
   return out;
 }
-function StandardScene({ doc, li, detail, sel, showStory, showTL, hhDraft, pending, vis, msel,
-  onPerson = NOOP, onUnion = NOOP, onBond = NOOP, onHH = NOOP, onTri = NOOP, onDown = null }) {
+function StandardScene({ doc, li, detail, sel, showStory, showTL, hhDraft, pending, vis, msel, viewK,
+  onPerson = NOOP, onUnion = NOOP, onBond = NOOP, onHH = NOOP, onTri = NOOP, onDown = null,
+  onCardMove = null, onCardSplit = null, onCardEdit = null }) {
   const V = vis || {...ALL_ON,...(doc.viewPrefs||{})};
   /* 이 함수는 편집 화면과 내보내기(인쇄) 화면이 함께 쓰는, 실제로 그리는 자리다.
      여기서 한 번 맞춰 두면 사람 기호·설명박스가 모두 같은 배율로 그려진다. */
@@ -2875,7 +2949,7 @@ function StandardScene({ doc, li, detail, sel, showStory, showTL, hhDraft, pendi
          띠 하나가 남아 있었다. 그려진 사람이 있을 때만 띠를 낸다. */}
       {doc.people.length > 0 && genBands.map((band, g) => (
         <g key={g}>
-          <rect x={-4000} y={band.top} width={8000} height={Math.max(40, band.bottom - band.top)} fill={g % 2 && V.band ? (BAND_PALETTES[doc.viewPrefs?.bandColor] || T.band) : "transparent"} opacity={0.7} pointerEvents="none" />
+          <rect data-print-background="true" x={-4000} y={band.top} width={8000} height={Math.max(40, band.bottom - band.top)} fill={g % 2 && V.band ? (BAND_PALETTES[doc.viewPrefs?.bandColor] || T.band) : "transparent"} opacity={0.7} pointerEvents="none" />
           <text x={b.minX - 200} y={band.top + 28} fontSize={11.5} fill={T.sage} fontFamily={FB} pointerEvents="none">
             {tr([["1 · Grandparents", "2 · Parents", "3 · Index & siblings", "4 · Children", "5 · Grandchildren"][g] || `${g + 1}`,
               ["1세대 · 조부모", "2세대 · 부모", "3세대 · 본인·형제", "4세대 · 자녀", "5세대 · 손자녀"][g] || `${g + 1}세대`,
@@ -2917,8 +2991,12 @@ function StandardScene({ doc, li, detail, sel, showStory, showTL, hhDraft, pendi
           selected={(sel?.kind === "person" && sel.id === p.id) || pending?.includes(p.id) || hhDraft?.members.includes(p.id)}
           onDown={onDown ? (e) => onDown(e, p) : NOOP} />
       ))}
-      {showStory && storyBlocks.length > 0 && <SideCard x={b.minX - 400} y={b.minY - 70} w={300} title={tr(S.storyTitle, li)} blocks={storyBlocks} accent={T.pine} />}
-      {showStory && ctxBlocks.length > 0 && <SideCard x={b.maxX + 110} y={b.minY - 70} w={300} title={tr(S.ctxTitle, li)} blocks={ctxBlocks} accent={TRI_COLOR} />}
+      {showStory && <StoryCardGroup kind="story" doc={doc} li={li} blocks={storyBlocks} baseX={b.minX - 400} baseY={b.minY - 70}
+        title={tr(S.storyTitle, li)} accent={T.pine} split={!!doc.storySplit} viewK={viewK}
+        onMove={onCardMove} onSplit={onCardSplit} onEdit={onCardEdit} />}
+      {showStory && <StoryCardGroup kind="context" doc={doc} li={li} blocks={ctxBlocks} baseX={b.maxX + 110} baseY={b.minY - 70}
+        title={tr(S.ctxTitle, li)} accent={TRI_COLOR} split={!!doc.ctxSplit} viewK={viewK}
+        onMove={onCardMove} onSplit={onCardSplit} onEdit={onCardEdit} />}
       {showTL && <LayeredChronology doc={doc} events={allEvents} x0={b.minX - 120} x1={b.maxX + 120} y={b.maxY + 210} title={tr(S.tlTitle, li)} li={li} />}
     </>
   );
@@ -3021,7 +3099,7 @@ function docBounds(doc, opts = {}) {
 }
 
 /* ══ editor ═════════════════════════════════════════════════════ */
-function Editor({ doc, setDoc, li, cases, storageOK, openSave, loadCase, deleteCase, flash, undo, redo, canUndo, canRedo, templateRef, panelRef, noteBridge, toolHidden }) {
+function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadCase, deleteCase, flash, undo, redo, canUndo, canRedo, templateRef, panelRef, noteBridge, toolHidden }) {
   const [view, setView] = useState({ x: 460, y: 150, k: 0.85 });
   const [mode, setMode] = useState("select");
   /* 덧쓰기 — 펜 모드, 색, 굵기, 형광펜 여부, 지우개 */
@@ -3064,6 +3142,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, loadCase, deleteC
   /* 글자 메모 — 기호 옆에 짧게 적어 두는 것 */
   const [textMode, setTextMode] = useState(false);
   const [editing, setEditing] = useState(null);   // { id, x, y, value, isNew }
+  const [cardEditing, setCardEditing] = useState(null);   // 이야기·맥락 상자 인라인 편집: { kind, fields:[{key,label,value}], x, y }
   const noteDrag = useRef(null);
   const bendDrag = useRef(null);
   const [connectNote,setConnectNote] = useState(null);
@@ -3341,7 +3420,9 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, loadCase, deleteC
       const a = byId[pending[0]], b2 = p;
       const male = a.gender === "female" && b2.gender !== "female" ? b2 : a;
       const other = male === a ? b2 : a;
-      setDoc((d) => ({ ...d, unions: [...d.unions, { id: uid(), a: male.id, b: other.id, type: unionType, mYear: "", eYear: "" }] }));
+      const existing = doc.unions.find(u => ((u.a === male.id && u.b === other.id) || (u.a === other.id && u.b === male.id)) && u.type === unionType);
+      if (existing) { setSel({ kind: "union", id: existing.id }); setTab("detail"); setPanelOpen(true); }
+      else setDoc((d) => normalizeUnions({ ...d, unions: [...d.unions, { id: uid(), a: male.id, b: other.id, type: unionType, mYear: "", eYear: "" }] }));
       setPending([]); setMode("select"); return;
     }
     if (mode === "bond") {
@@ -3624,6 +3705,20 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, loadCase, deleteC
         ? notes.map((n) => (n.id === ed.id ? { ...n, text: v } : n))
         : [...notes, { id: ed.id, x: ed.x, y: ed.y, text: v, color: ed.color, size: ed.size, anchor:ed.anchor||null, connector:{axis:"auto",side:"auto",offset:0} }] };
     });
+  };
+
+  /* 이야기·맥락 상자 — 옮기기·나누기/합치기·캔버스에서 바로 고치기.
+     doc.cardPos는 자리만, doc.story*doc.context는 실제 글이 산다. */
+  const onCardMove = (key, pos) => setDoc((d) => ({ ...d, cardPos: { ...(d.cardPos || {}), [key]: pos } }));
+  const onCardSplit = (kind, split) => setDoc((d) => ({ ...d, [kind === "story" ? "storySplit" : "ctxSplit"]: split }));
+  const onCardEdit = (kind, fields, pos) => setCardEditing({
+    kind, x: pos.x, y: pos.y,
+    fields: fields.map((f) => ({ key: f.key, label: f.head, value: (kind === "story" ? doc.story : doc.context)?.[f.key] || "" })),
+  });
+  const commitCardEdit = () => {
+    const ed = cardEditing; setCardEditing(null);
+    if (!ed) return;
+    setDoc((d) => ({ ...d, [ed.kind]: { ...(d[ed.kind] || {}), ...Object.fromEntries(ed.fields.map((f) => [f.key, f.value])) } }));
   };
 
   const onTextDown = (e) => {
@@ -4364,6 +4459,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, loadCase, deleteC
               <Layers doc={doc} li={li} detail={detail} sel={sel} showStory={showStory} showTL={showTL} vis={vis} msel={msel}
                 tlg={tlg} tlgScale={tlgScale} tlgWin={tlgWin} stdInset={stdInset} hhDraft={hhDraft} pending={pending}
                 onMove={moveTlg} viewK={view.k}
+                onCardMove={onCardMove} onCardSplit={onCardSplit} onCardEdit={onCardEdit}
                 onPerson={(id) => { setSel({ kind: "person", id }); setTab("detail"); setPanelOpen(true); }}
                 onUnion={(id) => { setSel({ kind: "union", id }); setTab("detail"); setPanelOpen(true); }}
                 onBond={(id, seg) => { setSel({ kind: "bond", id, seg: seg || null }); setTab("detail"); setPanelOpen(true); }}
@@ -4579,6 +4675,34 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, loadCase, deleteC
                 boxShadow: "0 4px 14px rgba(22,32,42,.18)", outline: "none" }} />
           )}
 
+          {/* 이야기·맥락 상자를 캔버스에서 더블클릭하면 뜨는 인라인 편집 — 오른쪽 패널을
+             거치지 않고 그 자리에서 바로 고친다. 필드가 여러 개면(합쳐진 상자) 세로로 늘어놓는다. */}
+          {cardEditing && (
+            <div data-noprint onPointerDown={(e) => e.stopPropagation()}
+              style={{ position: "absolute", zIndex: 9, left: view.x + cardEditing.x * view.k,
+                top: view.y + cardEditing.y * view.k, width: 280,
+                background: "#fff", border: `1.5px solid ${T.pine}`, borderRadius: 8, padding: 10,
+                boxShadow: "0 6px 20px rgba(22,32,42,.2)", display: "flex", flexDirection: "column", gap: 8 }}>
+              {cardEditing.fields.map((f, i) => (
+                <label key={f.key} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  <span style={{ fontSize: 10.5, fontFamily: FB, color: T.mute, fontWeight: 600 }}>{f.label}</span>
+                  <textarea autoFocus={i === 0} value={f.value} rows={3}
+                    onChange={(e) => setCardEditing((v) => ({ ...v, fields: v.fields.map((x, xi) => xi === i ? { ...x, value: e.target.value } : x) }))}
+                    style={{ border: `1px solid ${T.rule}`, borderRadius: 5, padding: "5px 7px", resize: "vertical",
+                      fontSize: 12.5, fontFamily: FB, color: T.ink, lineHeight: 1.5 }} />
+                </label>
+              ))}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                <button type="button" onClick={() => setCardEditing(null)}
+                  style={{ border: `1px solid ${T.rule}`, background: "#fff", color: T.mute, borderRadius: 6,
+                    padding: "4px 10px", fontSize: 11.5, fontFamily: FB, cursor: "pointer" }}>{t("cancel")}</button>
+                <button type="button" onClick={commitCardEdit}
+                  style={{ border: "none", background: T.pine, color: "#fff", borderRadius: 6,
+                    padding: "4px 12px", fontSize: 11.5, fontFamily: FB, fontWeight: 600, cursor: "pointer" }}>{t("saveConfirm")}</button>
+              </div>
+            </div>
+          )}
+
           {/* 여닫이 단추. 닫혀 있을 때는 무언가 감춰져 있다는 것을 알려야
               하므로 먹빛으로 채워 눈에 띄게 하고, 열려 있을 때는 작업을
               방해하지 않도록 조용히 물러난다. 화살표가 어느 쪽으로 움직일지
@@ -4694,7 +4818,9 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, loadCase, deleteC
 
               {tab === "saved" && (
                 <div style={{ fontSize: 12.5, color: T.mute, lineHeight: 1.48 }}>
-                  <SectionTitle>{t("savedCases")}</SectionTitle>
+                  <SectionTitle>{t("open")}</SectionTitle>
+                  <Btn full onClick={onOpenFile}>{tr(["Open a case file", "가계도 파일 열기", "開啟個案檔案"], li)}</Btn>
+                  <div style={{ marginTop: 18 }}><SectionTitle>{t("savedCases")}</SectionTitle></div>
                   {!storageOK && <div style={{ fontSize: 12 }}>{t("noSaved")}</div>}
                   {storageOK && cases.length === 0 && <div style={{ fontSize: 12 }}>{t("noSaved")}</div>}
                   {storageOK && cases.map((c) => (
@@ -7060,7 +7186,7 @@ async function translateSeq(text, fromLabel, toLabel, { concurrency = 3, onSente
 
 /* 예전에 저장한 파일에는 새로 생긴 칸이 없다. 열 때 기본값을 채워
    넣어, 오래된 사례가 열리지 않는 일이 없게 한다. */
-const withDefaults = (d) => ({
+const withDefaults = (d) => normalizeUnions({
   ...emptyDoc(), ...d,
   attrLayers: (d && d.attrLayers && d.attrLayers.length)
     ? d.attrLayers : emptyDoc().attrLayers,
@@ -7076,6 +7202,9 @@ const emptyDoc = () => ({
      쓰면 된다. */
   attrLayers: [{ id: "a1", name: "" }, { id: "a2", name: "" }, { id: "a3", name: "" }],
   textScale: 1,   // 글자 배율 — 이름·역할·메모·사건·설명박스에 함께 적용
+  cardPos: {},     // 이야기·맥락 상자를 직접 옮기면 그 자리를 여기에 기억해 둔다. 키: "story" | "story:problem" 등
+  storySplit: false,   // 이야기 상자를 현재문제·가족사·강점·메모 네 칸으로 나눠 보여줄지
+  ctxSplit: false,      // 맥락 상자도 마찬가지
 });
 /* 자아분화는 보웬의 0–100 척도를 넷으로 나눠 읽는다 */
 const DIFF_BAND = (v) => (v < 25 ? 0 : v < 50 ? 1 : v < 75 ? 2 : 3);
@@ -7295,21 +7424,20 @@ function AppInner() {
     const title = (name ?? doc.title ?? "").trim();
     if (dest === "file") {
       const withTitle = { ...doc, title };
-      patchDoc(withTitle);
       const blob = new Blob([JSON.stringify(withTitle, null, 2)], { type: "application/json" });
       const res = await saveAs(blob, `${title || "genogram"}.genogram.json`, "application/json", "Genogram data (JSON)");
-      if (res !== "cancelled") flash(t("saved"));
+      if (res !== "cancelled") { patchDoc(withTitle); flash(t("saved")); }
       return res;
     }
-    if (!storage) { exportJSON(); return; }
+    if (!storage) return saveCase(name, "file");
     const id = doc.id || uid();
     const next = { ...doc, id, title, savedAt: new Date().toISOString() };
     try {
       await storage.set(`gs:case:${id}`, JSON.stringify(next));
       const idx = [{ id, title: next.title, savedAt: next.savedAt }, ...cases.filter((c) => c.id !== id)];
       await storage.set("gs:index", JSON.stringify(idx));
-      setCases(idx); patchDoc(next); flash(t("saved"));
-    } catch { flash("!"); }
+      setCases(idx); patchDoc(next); flash(t("saved")); return "saved";
+    } catch { flash("!"); return "failed"; }
   };
   /* 저장하지 않은 작업(지금 그리는 것, 지난번에 남은 임시저장)을 새로 시작하거나 다른 가계도를 열 때 조용히 잃지 않도록,
      그 자리에서 '저장한 가계도'에 (자동 보관)으로 저장해 둔다. 저장이 안 되면(저장소 없음·실패) 아무것도 지우지 않고 그대로 둔다. */
@@ -7399,8 +7527,7 @@ function AppInner() {
                     ))}
                     <div style={{ height: 1, background: T.rule, margin: "4px 2px" }} />
                     {[
-                      [t("open"), () => { fileRef.current?.click(); setFileMenuOpen(false); }],
-                      [t("tabSaved"), () => { panelRef.current?.openTab("saved"); setFileMenuOpen(false); }],
+                      [t("open"), () => { panelRef.current?.openTab("saved"); setFileMenuOpen(false); }],
                     ].map(([label, fn]) => (
                       <button key={label} type="button" onClick={fn} style={fileMenuItem}>{label}</button>
                     ))}
@@ -7473,7 +7600,7 @@ function AppInner() {
             resumeDraft={doc.people.length ? () => setScreen("draw") : resumeDraft}
             dropDraft={doc.people.length ? () => { resetDoc(emptyDoc()); storage?.delete("gs:draft").catch(() => {}); } : dropDraft}
             autosaveOn={autosaveOn} setAutosave={setAutosave} deleteAllOnDevice={deleteAllOnDevice} />}
-          {screen === "draw" && <Editor key={docEpoch} doc={doc} setDoc={setDoc} li={li} cases={cases} storageOK={storageOK} openSave={() => setSaveDlg(true)} loadCase={loadCase} deleteCase={deleteCase} flash={flash} templateRef={templateRef} panelRef={panelRef} noteBridge={noteBridge} toolHidden={toolHidden}
+          {screen === "draw" && <Editor key={docEpoch} doc={doc} setDoc={setDoc} li={li} cases={cases} storageOK={storageOK} openSave={() => setSaveDlg(true)} onOpenFile={() => fileRef.current?.click()} loadCase={loadCase} deleteCase={deleteCase} flash={flash} templateRef={templateRef} panelRef={panelRef} noteBridge={noteBridge} toolHidden={toolHidden}
             undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />}
           {screen === "export" && <ExportScreen doc={doc} setDoc={setDoc} li={li} exportJSON={exportJSON} flash={flash} onBackToDraw={() => setScreen("draw")} />}
             {screen === "analysis" && <AnalysisScreen doc={doc} setDoc={setDoc} li={li} onBackToDraw={() => setScreen("draw")} />}
@@ -7500,7 +7627,9 @@ function AppInner() {
         </div>
         {saveDlg && (
           <SaveDialog li={li} initialName={doc.title} storageOK={storageOK}
-            onSave={async (name, dest) => { await saveCase(name, dest); setSaveDlg(false);
+            onSave={async (name, dest) => { const result = await saveCase(name, dest);
+              if (result === "cancelled" || result === "failed") return;
+              setSaveDlg(false);
               if (exitAfterSave) { setExitAfterSave(false); setScreen("home"); } }}
             onClose={() => { setSaveDlg(false); setExitAfterSave(false); }} />
         )}
@@ -9192,6 +9321,7 @@ function ExportScreen({ doc, setDoc, li, exportJSON, flash, onBackToDraw }) {
   const [paper, setPaper] = useState(getPaper);
   const choosePaper = (k) => { setPaper(k); try { localStorage.setItem(PAPER_KEY, k); } catch {} };
   const [minPt, setMinPt] = useState(10);
+  const [report, setReport] = useState(null);
   const { storyBlocks, ctxBlocks } = familyStoryBlocks(doc, li);
   const ts = Math.max(TEXT_SCALE_MIN, Math.min(TEXT_SCALE_MAX, doc.textScale || 1));
   CURRENT_TEXT_SCALE = ts;   // docBounds 아래에서 설명박스 크기를 셀 때도 같은 배율을 쓴다
@@ -9210,23 +9340,21 @@ function ExportScreen({ doc, setDoc, li, exportJSON, flash, onBackToDraw }) {
     try {
       if (!svgRef.current) { flash("…"); return; }
       if (document.fonts?.ready) { try { await document.fonts.ready; } catch {} }
-      const str = serializeSVG(svgRef.current, box);
+      const exportBox = report?.box || box;
+      const str = serializeSVG(svgRef.current, exportBox);
       if (kind === "svg") {
         await saveAs(new Blob([str], { type: "image/svg+xml;charset=utf-8" }), `${name}.svg`, "image/svg+xml", "SVG image");
         return;
       }
-      const scale = Math.max(0.35, Math.min(2, 6000 / Math.max(box.w, box.h, 1)));
-      svgToCanvas(str, box.w, box.h, scale, (cv) => {
+      const scale = Math.max(0.35, Math.min(2, 6000 / Math.max(exportBox.w, exportBox.h, 1)));
+      svgToCanvas(str, exportBox.w, exportBox.h, scale, (cv) => {
         try {
           if (!cv) { flash(tr(["Export failed — try SVG", "내보내기 실패 — SVG를 사용해 보세요", "輸出失敗 — 請改用 SVG"], li)); return; }
           if (kind === "png") {
             cv.toBlob((b) => { if (b) saveAs(b, `${name}.png`, "image/png", "PNG image"); else flash("…"); });
             return;
           }
-          cv.toBlob((b) => {
-            if (!b) { flash("…"); return; }
-            b.arrayBuffer().then((ab) => saveAs(jpegToPDF(new Uint8Array(ab), cv.width, cv.height), `${name}.pdf`, "application/pdf", "PDF document"));
-          }, "image/jpeg", 0.92);
+
         } catch (e) { flash(String(e.message || e)); }
       });
     } catch (e) { flash(String(e.message || e)); }
@@ -9243,157 +9371,65 @@ function ExportScreen({ doc, setDoc, li, exportJSON, flash, onBackToDraw }) {
     doc.households.length > 0,
     ppl.some((p) => p.note) || (doc.events || []).length > 0,
   ];
+  const printReport = async () => {
+    if (!report) return;
+    if (document.fonts?.ready) await document.fonts.ready;
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    window.print();
+  };
+  const reviewBlocks = [
+    { head: t("checklist"), body: CHECKS.map((c,i) => `${checks[i] ? "●" : "○"} ${tr(c,li)}`).join("\n") },
+    ...QUESTIONS.map((q,i) => ({head: `${i+1}. ${t("questions")}`,body:tr(q,li)+(q[3] ? `  (${q[3]})` : "")})),
+  ];
   return (
-    <div style={{ flex: 1, overflowY: "auto" }}>
-      <div style={{ maxWidth: 980, margin: "0 auto", padding: "30px 22px 70px" }}>
-        <button type="button" onClick={onBackToDraw} data-noprint
-          style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none",
-            cursor: "pointer", padding: 0, marginBottom: 10, fontSize: 12.5, fontFamily: FB, color: T.mute }}>
-          ← {t("m2")}
-        </button>
-        <h1 style={{ fontFamily: FD, fontSize: 29, fontWeight: 600, letterSpacing: "-.02em", marginBottom: 4 }}>{t("exTitle")}</h1>
-        <div style={{ borderTop: `2px solid ${T.ink}`, marginBottom: 18 }} />
-
-        <div className="flex" style={{ gap: 0, marginTop: 18 }}>
-          <Group>
-            <GBtn first active={!exTlg && !exChronology} onClick={() => { setExTlg(false); setExChronology(false); }}>{t("viewStd")}</GBtn>
-            <GBtn active={exTlg} onClick={() => { setExTlg(true); setExChronology(false); }}>{t("viewTLG")}</GBtn>
-            <GBtn active={exChronology} onClick={() => { setExTlg(false); setExChronology(true); }}>{t("chronView")}</GBtn>
-          </Group>
-        </div>
-        <div style={{ background: "#fff", border: `1px solid ${T.rule}`, borderRadius: 12, padding: 12, margin: "10px 0 18px" }}>
-          <svg ref={svgRef} viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`} style={{ width: "100%", height: exTlg || exChronology ? 520 : 380, background: "#fff" }}>
-            {svgDefs()}
-            <g id="exportRoot">
-              {exTlg
-                ? <g transform={`translate(${-tlgW / 2},0)`}>
-                    <Layers doc={doc} li={li} detail sel={null} showStory={false} showTL={false}
-                      tlg tlgScale={9} tlgWin={null} stdInset />
-                  </g>
-                : <Layers doc={doc} li={li} detail sel={null} showStory={false} showTL={exChronology} tlg={false} tlgScale={9} tlgWin={null} />}
-              {!exTlg && doc.viewPrefs?.ink!==false && <InkLayer strokes={doc.ink||[]}/>}
-              {!exTlg && doc.viewPrefs?.note!==false && <NoteLayer doc={doc} notes={doc.notes||[]} vis={{...ALL_ON,...doc.viewPrefs}}/>}
-            </g>
-          </svg>
-        </div>
-
-        {!exTlg && (
-          <div style={{ background: "#fff", border: `1px solid ${T.rule}`, borderRadius: 12, padding: 14, marginBottom: 14 }}>
-            <div style={{ fontWeight: 700, color: T.ink, fontSize: 13, marginBottom: 8 }}>
-              {tr(["Print check", "인쇄 확인", "列印檢查"], li)}
-            </div>
-            <div className="flex" style={{ gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
-              <label style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 11, fontFamily: FB, color: T.mute }}>
-                {tr(["Paper", "용지", "紙張"], li)}
-                <select value={paper} onChange={(e) => choosePaper(e.target.value)}
-                  style={{ border: `1px solid ${T.rule}`, borderRadius: 7, padding: "5px 7px", fontSize: 12, fontFamily: FB, color: T.ink }}>
-                  {Object.entries(PAPER_SIZES).map(([k, v]) => <option key={k} value={k}>{tr(v.label, li)}</option>)}
-                </select>
-              </label>
-              <label style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 11, fontFamily: FB, color: T.mute }}>
-                {tr(["Minimum readable size", "최소 글자 크기", "最小可讀字級"], li)}
-                <select value={minPt} onChange={(e) => setMinPt(+e.target.value)}
-                  style={{ border: `1px solid ${T.rule}`, borderRadius: 7, padding: "5px 7px", fontSize: 12, fontFamily: FB, color: T.ink }}>
-                  <option value={8}>8pt — {tr(["for the file", "보관용", "存檔用"], li)}</option>
-                  <option value={9}>9pt</option>
-                  <option value={10}>10pt — {tr(["read together in session", "상담 중 함께 봄", "會談中一起看"], li)}</option>
-                </select>
-              </label>
-            </div>
-            {(() => {
-              const P = PAPER_SIZES[paper];
-              const printableW = P.w - 24, printableH = P.h - 24;       // 여백 약 12mm씩
-              const k = Math.min(printableW / box.w, printableH / box.h);   // mm / SVG단위
-              const PT = 25.4 / 72;
-              const nameSizePt = 13 * ts * k / PT, noteSizePt = 10 * ts * k / PT;
-              const worst = Math.min(nameSizePt, noteSizePt);
-              const ok = worst >= minPt;
-              return (
-                <div style={{ marginTop: 10, padding: "9px 11px", borderRadius: 8, fontSize: 12, lineHeight: 1.6,
-                  background: ok ? "#EEF6F0" : "#FDF1EC", border: `1px solid ${ok ? "#BFDCC8" : "#E8B7A0"}`, color: ok ? "#2E5B3E" : "#8A3E24" }}>
-                  {ok
-                    ? tr([`Fits this paper — about ${worst.toFixed(1)}pt at this size.`,
-                          `이 용지에 들어갑니다 — 이 배율에서 약 ${worst.toFixed(1)}pt.`,
-                          `符合此紙張 — 此倍率下約 ${worst.toFixed(1)}pt。`], li)
-                    : tr([`Too small for this paper — about ${worst.toFixed(1)}pt (below ${minPt}pt). Try Extra large, a bigger paper, or fewer people per page.`,
-                          `이 용지로는 너무 작습니다 — 약 ${worst.toFixed(1)}pt (${minPt}pt 미만). 글자 배율을 아주 크게로 올리거나, 더 큰 용지를 쓰거나, 인물이 적게 보이도록 나눠 보세요.`,
-                          `此紙張太小 — 約 ${worst.toFixed(1)}pt（低於 ${minPt}pt）。請調高文字倍率、改用更大紙張，或減少單張人物數。`], li)}
-                </div>
-              );
-            })()}
+    <div style={{flex:1,minHeight:0,overflowY:"auto"}}>
+      <div style={{maxWidth:1100,margin:"0 auto",padding:"24px 20px 50px"}}>
+        <button onClick={onBackToDraw} style={{border:0,background:"none",color:T.mute,cursor:"pointer"}}>← {t("m2")}</button>
+        <h1 style={{fontFamily:FD,fontSize:26}}>{t("exTitle")}</h1>
+        <div data-noprint style={{background:"white",border:`1px solid ${T.rule}`,borderRadius:12,padding:18,marginBottom:18}}>
+          <h3 style={{margin:"0 0 12px",fontSize:15}}>{tr(["Print check","인쇄 확인","列印檢查"],li)}</h3>
+          <div className="flex" style={{gap:12,flexWrap:"wrap",alignItems:"center"}}>
+            <label>{tr(["Paper","용지","紙張"],li)} <select value={paper} onChange={e=>choosePaper(e.target.value)}>
+              {Object.entries(PAPER_SIZES).map(([k,v])=><option key={k} value={k}>{tr(v.label,li)}</option>)}
+            </select></label>
+            <label>{tr(["Print font size","인쇄 글자 크기","列印字級"],li)} <select value={minPt} onChange={e=>setMinPt(+e.target.value)}>
+              {[10,11,12,14].map(n=><option key={n} value={n}>{n}pt</option>)}
+            </select></label>
+            <Group>
+              <GBtn first active={!exTlg&&!exChronology} onClick={()=>{setExTlg(false);setExChronology(false);}}>{t("viewStd")}</GBtn>
+              <GBtn active={exTlg} onClick={()=>{setExTlg(true);setExChronology(false);}}>{t("viewTLG")}</GBtn>
+              <GBtn active={exChronology} onClick={()=>{setExTlg(false);setExChronology(true);}}>{t("chronView")}</GBtn>
+            </Group>
           </div>
-        )}
-
-        <div className="flex" style={{ gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-          <Btn tone="solid" onClick={() => doExport("png")}>{t("exPNG")}</Btn>
-          <Btn tone="solid" onClick={() => doExport("pdf")}>{t("exPDF")}</Btn>
-          <Btn onClick={() => doExport("svg")}>{t("exSVG")}</Btn>
-          <Btn onClick={exportJSON}>{t("exData")}</Btn>
-          {(storyBlocks.length > 0 || ctxBlocks.length > 0) && (
-            <Btn onClick={() => window.print()}>{tr(["Print story & context (separate page)", "이야기·맥락 별지 인쇄", "另頁列印敘事與脈絡"], li)}</Btn>
-          )}
-        </div>
-        
-        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 18 }}>
-          <div style={{ background: "#fff", border: `1px solid ${T.rule}`, borderRadius: 12, padding: 18 }}>
-            <h3 style={{ fontFamily: FD, fontSize: 16.5, fontWeight: 600, marginBottom: 10, letterSpacing: '-.01em' }}>{t("checklist")}</h3>
-            {CHECKS.map((c, i) => (
-              <div key={i} className="flex" style={{ gap: 8, fontSize: 12.5, alignItems: "flex-start", padding: "4px 0" }}>
-                <span style={{ color: checks[i] ? T.sage : "#C9CFC7", fontSize: 14 }}>{checks[i] ? "●" : "○"}</span>
-                <span style={{ color: checks[i] ? T.ink : T.ink2, lineHeight: 1.55 }}>{tr(c, li)}</span>
-              </div>
-            ))}
+          <p style={{fontSize:13,lineHeight:1.65,color:T.mute}}>
+            {tr(["Genogram → Family story → Checklist and questions. This panel is not printed.","가계도 → 가족 전체 이야기 → 작성 점검·함께 읽을 질문 순서입니다. 이 안내 상자는 인쇄되지 않습니다.","家系圖 → 全家敘事 → 檢核與提問。此說明不列印。"],li)}<br/>
+            {report && tr([`Body ${minPt}pt · diagram at least ${report.smallestPt.toFixed(1)}pt · ${report.totalPages} pages.`, `본문 ${minPt}pt · 가계도 최소 ${report.smallestPt.toFixed(1)}pt · 총 ${report.totalPages}쪽`, `內文 ${minPt}pt · 圖中文字至少 ${report.smallestPt.toFixed(1)}pt · 共 ${report.totalPages} 頁。`],li)}
+            {report?.diagramPages>1 && <><br/>{tr(["The diagram continues across overlapping sheets to keep text readable.","가계도가 커서 여러 쪽에 이어집니다. 경계 부분을 겹쳐 인쇄해 내용이 빠지지 않도록 했습니다.","家系圖分成數頁，邊界重疊以保留內容。"],li)}</>}
+          </p>
+          <div className="flex" style={{gap:8,flexWrap:"wrap"}}>
+            <Btn tone="solid" disabled={!report} onClick={printReport}>{tr(["Print","인쇄","列印"],li)}</Btn>
+            <Btn disabled={!report} onClick={printReport}>{tr(["Save PDF","PDF 저장","儲存 PDF"],li)}</Btn>
+            <Btn disabled={!report} onClick={()=>doExport("png")}>{tr(["Genogram PNG","가계도 PNG","家系圖 PNG"],li)}</Btn>
+            <Btn disabled={!report} onClick={()=>doExport("svg")}>{tr(["Genogram SVG","가계도 SVG","家系圖 SVG"],li)}</Btn>
+            <Btn onClick={exportJSON}>{t("exData")}</Btn>
           </div>
-          <div style={{ background: "#fff", border: `1px solid ${T.rule}`, borderRadius: 12, padding: 18 }}>
-            <h3 style={{ fontFamily: FD, fontSize: 16.5, fontWeight: 600, marginBottom: 10, letterSpacing: '-.01em' }}>{t("questions")}</h3>
-            {QUESTIONS.map((q, i) => (
-              <div key={i} className="flex" style={{ gap: 8, fontSize: 12.5, alignItems: "flex-start", padding: "5px 0" }}>
-                <span style={{ fontFamily: FM, color: T.gold, fontSize: 11 }}>{i + 1}</span>
-                <span style={{ color: T.ink2, lineHeight: 1.45, flex: 1 }}>{tr(q, li)}</span>
-                {q[3] && <span style={{ fontFamily: FM, fontSize: 9.5, color: T.faint, whiteSpace: "nowrap", paddingTop: 2 }}>{q[3]}</span>}
-              </div>
-            ))}
-          </div>
+          <p style={{fontSize:12,color:T.mute,marginBottom:0}}>{tr(["For PDF, choose Save as PDF in the print dialog. Use the selected paper, 100% scale, and turn off browser headers and footers.","PDF 저장은 인쇄 창에서 ‘PDF로 저장’을 선택하세요. 선택한 용지와 배율 100%를 사용하고, 브라우저의 머리글·바닥글은 꺼 주세요.","在列印視窗選擇儲存 PDF，使用所選紙張、100% 比例並關閉瀏覽器頁首頁尾。"],li)}</p>
         </div>
-
+        <svg aria-hidden="true" ref={svgRef} viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`} style={{position:"fixed",left:-100000,top:0,width:1000,height:700,visibility:"hidden"}}>
+          {svgDefs()}
+          <g id="exportRoot">
+            {exTlg ? <g transform={`translate(${-tlgW/2},0)`}><Layers doc={doc} li={li} detail sel={null} showStory={false} showTL={false} tlg tlgScale={9} tlgWin={null} stdInset/></g>
+              : <Layers doc={doc} li={li} detail sel={null} showStory={false} showTL={exChronology} tlg={false} tlgScale={9} tlgWin={null}/>}
+            {!exTlg && doc.viewPrefs?.ink!==false && <InkLayer strokes={doc.ink||[]}/>}
+            {!exTlg && doc.viewPrefs?.note!==false && <NoteLayer doc={doc} notes={doc.notes||[]} vis={{...ALL_ON,...doc.viewPrefs}}/>}
+          </g>
+        </svg>
+        <PrintReport svgRef={svgRef} paper={PAPER_SIZES[paper]} fontPt={minPt} doc={doc} li={li}
+          storyBlocks={storyBlocks} ctxBlocks={ctxBlocks} reviewBlocks={reviewBlocks} mode={`${exTlg}:${exChronology}`} onReady={setReport}/>
       </div>
-
-      {(storyBlocks.length > 0 || ctxBlocks.length > 0) && (<>
-        <style>{EXPORT_STORY_PRINT_CSS}</style>
-        <div className="gs-story-print" data-story-print>
-          <h1>{doc.title || tr(["Untitled case", "제목 없는 가계도", "未命名個案"], li)}</h1>
-          <div className="gs-story-sub">{tr(["Story & context", "이야기와 맥락", "敘事與脈絡"], li)} · {new Date().toLocaleDateString()}</div>
-          {storyBlocks.length > 0 && (<>
-            <h2>{t("storyTitle")}</h2>
-            {storyBlocks.map((b, i) => <div key={i} className="gs-story-block"><h3>{b.head}</h3><p>{b.body}</p></div>)}
-          </>)}
-          {ctxBlocks.length > 0 && (<>
-            <h2>{t("ctxTitle")}</h2>
-            {ctxBlocks.map((b, i) => <div key={i} className="gs-story-block"><h3>{b.head}</h3><p>{b.body}</p></div>)}
-          </>)}
-        </div>
-      </>)}
     </div>
   );
 }
-/* 이야기·맥락 별지 — 화면에는 안 보이다가 인쇄할 때만 나온다(보고서 인쇄와 같은 방식).
-   글자 배율(textScale)을 여기도 그대로 적용해, 그림과 별지가 같은 배율로 느껴지게 한다. */
-const EXPORT_STORY_PRINT_CSS = `
-.gs-story-print{display:none}
-@media print{
-  @page{margin:16mm 14mm}
-  html,body{height:auto!important;overflow:visible!important;background:#fff!important}
-  [data-noprint],.gs-app-header{display:none!important}
-  .gs-app{height:auto!important;overflow:visible!important;display:block!important}
-  .gs-app div{overflow:visible!important}
-  .gs-story-print{display:block!important;max-width:680px;margin:0 auto;font-family:'Noto Sans KR',system-ui,sans-serif;color:#14243A}
-  .gs-story-print h1{font-size:${20}pt;margin:0 0 4pt}
-  .gs-story-sub{font-size:10pt;color:#5b6b7b;margin-bottom:16pt;border-bottom:1px solid #ccc;padding-bottom:8pt}
-  .gs-story-print h2{font-size:13pt;color:#1B3350;margin:18pt 0 6pt;break-after:avoid}
-  .gs-story-block{break-inside:avoid;margin-bottom:10pt}
-  .gs-story-block h3{font-size:11pt;color:#5C7A96;margin:0 0 3pt}
-  .gs-story-block p{font-size:11pt;line-height:1.6;margin:0;white-space:pre-wrap}
-}`;
 
 /* 분석 — 전에는 인쇄·내보내기 화면 맨 아래에 붙어 있어서, 인쇄하려면 늘 분석까지
    함께 열어야 했다. 이제 파일 메뉴의 '인쇄·내보내기'와 헤더의 '분석'을 서로 다른
