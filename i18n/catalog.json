@@ -1,6 +1,6 @@
 {
  "generatedFrom": "src/App.jsx",
- "count": 1065,
+ "count": 1086,
  "items": [
   {
    "en": "Genogram Studio",
@@ -143,6 +143,16 @@
    "ambiguous": false
   },
   {
+   "en": "Save as…",
+   "ko": "다른 이름으로 저장…",
+   "zh": "另存新檔…",
+   "section": "S",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
    "en": "Print & Export",
    "ko": "인쇄·내보내기",
    "zh": "列印與匯出",
@@ -179,7 +189,7 @@
    "section": "S",
    "words": 1,
    "tier": 1,
-   "uses": 3,
+   "uses": 4,
    "ambiguous": false
   },
   {
@@ -1659,7 +1669,7 @@
    "section": "S",
    "words": 1,
    "tier": 1,
-   "uses": 6,
+   "uses": 8,
    "ambiguous": false
   },
   {
@@ -3529,7 +3539,7 @@
    "section": "OBJ_KINDS",
    "words": 1,
    "tier": 1,
-   "uses": 1,
+   "uses": 2,
    "ambiguous": false
   },
   {
@@ -4293,6 +4303,66 @@
    "ambiguous": false
   },
   {
+   "en": "Alcohol",
+   "ko": "알코올",
+   "zh": "酒精",
+   "section": "ADDI_KINDS",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Drugs",
+   "ko": "약물",
+   "zh": "藥物",
+   "section": "ADDI_KINDS",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Gambling",
+   "ko": "도박",
+   "zh": "賭博",
+   "section": "ADDI_KINDS",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Sex",
+   "ko": "성",
+   "zh": "性",
+   "section": "ADDI_KINDS",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Internet",
+   "ko": "인터넷",
+   "zh": "網路",
+   "section": "ADDI_KINDS",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Gaming",
+   "ko": "게임",
+   "zh": "遊戲",
+   "section": "ADDI_KINDS",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
    "en": "Physical",
    "ko": "신체질환",
    "zh": "身體",
@@ -4319,7 +4389,7 @@
    "section": "PersonNode",
    "words": 1,
    "tier": 1,
-   "uses": 4,
+   "uses": 5,
    "ambiguous": false
   },
   {
@@ -4903,11 +4973,111 @@
    "ambiguous": false
   },
   {
+   "en": "Scale label size",
+   "ko": "분화·척도 글자 크기",
+   "zh": "量尺標籤字級",
+   "section": "Editor",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
    "en": "Memo text size",
    "ko": "인물 메모 글자 크기",
    "zh": "人物備註字級",
    "section": "Editor",
    "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Role text size",
+   "ko": "역할 글자 크기",
+   "zh": "角色字級",
+   "section": "Editor",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Occupation",
+   "ko": "직업",
+   "zh": "職業",
+   "section": "Editor",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Occupation text size",
+   "ko": "직업 글자 크기",
+   "zh": "職業字級",
+   "section": "Editor",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Religion text size",
+   "ko": "종교 글자 크기",
+   "zh": "宗教字級",
+   "section": "Editor",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Addiction type",
+   "ko": "중독 종류",
+   "zh": "成癮類型",
+   "section": "Editor",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Choose type",
+   "ko": "종류 선택",
+   "zh": "選擇類型",
+   "section": "Editor",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Other addiction",
+   "ko": "기타 중독",
+   "zh": "其他成癮",
+   "section": "Editor",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Describe",
+   "ko": "내용 입력",
+   "zh": "輸入內容",
+   "section": "Editor",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Drag the personal memo on the canvas to reposition it.",
+   "ko": "개인 메모는 가계도 화면에서 끌어서 옮길 수 있습니다.",
+   "zh": "個人備註可在家系圖畫面拖曳移動。",
+   "section": "Editor",
+   "words": 10,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
@@ -10413,11 +10583,11 @@
    "ambiguous": false
   },
   {
-   "en": "Genogram → Family story → Checklist and questions. This panel is not printed.",
-   "ko": "가계도 → 가족 전체 이야기 → 작성 점검·함께 읽을 질문 순서입니다. 이 안내 상자는 인쇄되지 않습니다.",
-   "zh": "家系圖 → 全家敘事 → 檢核與提問。此說明不列印。",
+   "en": "Genogram → Family story → optional checklist and questions. This panel is not printed.",
+   "ko": "가계도 → 가족 전체 이야기 → 선택한 경우 작성 점검·함께 읽을 질문 순서입니다. 이 안내 상자는 인쇄되지 않습니다.",
+   "zh": "家系圖 → 全家敘事 → 可選的檢核與提問。此說明不列印。",
    "section": "ExportScreen",
-   "words": 13,
+   "words": 14,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
@@ -10468,6 +10638,46 @@
    "zh": "在列印視窗選擇儲存 PDF，使用所選紙張、100% 比例並關閉瀏覽器頁首頁尾。",
    "section": "ExportScreen",
    "words": 23,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Include the checklist and questions?",
+   "ko": "작성 점검·함께 읽을 질문을 인쇄할까요?",
+   "zh": "是否列印檢核與提問？",
+   "section": "ExportScreen",
+   "words": 5,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "The genogram is first, then the family story. The checklist and questions can be added at the end.",
+   "ko": "가계도 다음에 가족 전체 이야기가 나옵니다. 점검과 질문은 마지막에 추가할 수 있습니다.",
+   "zh": "家系圖後是家庭敘事。檢核與提問可加在最後。",
+   "section": "ExportScreen",
+   "words": 18,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Include",
+   "ko": "포함",
+   "zh": "包含",
+   "section": "ExportScreen",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Do not include",
+   "ko": "제외",
+   "zh": "不包含",
+   "section": "ExportScreen",
+   "words": 3,
    "tier": 1,
    "uses": 1,
    "ambiguous": false

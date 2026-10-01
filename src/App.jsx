@@ -167,6 +167,7 @@ const S = {
   m4s: ["Symbol set and further reading", "기호 모음과 참고 도서", "符號總覽與延伸閱讀"],
   fileMenu: ["File", "파일", "檔案"],
   fileSave: ["Save", "저장", "儲存"],
+  fileSaveAs: ["Save as…", "다른 이름으로 저장…", "另存新檔…"],
   printExport: ["Print & Export", "인쇄·내보내기", "列印與匯出"],
 
   /* editor chrome */
@@ -245,7 +246,7 @@ const S = {
   customUnnamed: ["A scale appears in the app only once it has a name. Blank slots stay hidden from the genogram and the person details.",
     "이름을 적은 척도만 앱에 나타납니다. 이름이 비어 있는 칸은 가계도와 인물 정보에 표시되지 않습니다.",
     "填上名稱的量尺才會出現在系統中。名稱空白的欄位不會顯示在家系圖與人物資料裡。"],
-  customScaleEx: [["Field scale 1", "Field scale 2", "Field scale 3"], ["현장 척도 1", "현장 척도 2", "현장 척도 3"], ["現場量尺 1", "現場量尺 2", "現場量尺 3"]],
+  customScaleEx: [["Empathy", "e.g. Problem solving", "e.g. Emotional expression"], ["공감", "예) 문제해결능력", "예) 감정표현"], ["同理心", "例：解決問題能力", "例：情緒表達"]],
   customPickPerson: ["Select a person to set their value", "인물을 고르면 여기서 값을 매깁니다", "選取人物即可在此設定數值"],
   layName: ["Scale name", "척도 이름", "量尺名稱"],
   notSet: ["Not recorded", "기록 안 함", "未記錄"],
@@ -1728,8 +1729,14 @@ function tlgLayout(doc, scale, win) {
 }
 
 /* ══ person node ════════════════════════════════════════════════ */
+const ADDI_KINDS = {
+  alcohol:['Alcohol','알코올','酒精'], substances:['Drugs','약물','藥物'], gambling:['Gambling','도박','賭博'],
+  sex:['Sex','성','性'], internet:['Internet','인터넷','網路'], gaming:['Gaming','게임','遊戲'],
+  other:['Other','기타','其他'],
+};
 function PersonNode({ p, selected, detail, li, onDown, attrChips, events, ts = 1 }) {
   const nameSize=textSize(p.nameSize,13*ts), infoSize=textSize(p.infoSize,11*ts), memoSize=textSize(p.noteSize,10*ts);
+  const roleSize=textSize(p.roleSize,11*ts), occupationSize=textSize(p.occupationSize,11*ts), religionSize=textSize(p.religionSize,11*ts);
   const stroke = selected ? T.gold : T.ink;
   const sw = selected ? 2.6 : 2;
   const clip = p.gender === "female" ? "clipCircle" : p.gender === "male" ? "clipSquare" : "clipDiamond";
@@ -1787,8 +1794,9 @@ function PersonNode({ p, selected, detail, li, onDown, attrChips, events, ts = 1
   if (p.addi) flags.push([tr(["Addiction", "중독", "成癮"], li), T.amber]);
   /* 글자를 키우면 한 줄에 담기는 글자 수가 줄어야 상자 폭이 그대로 유지되고,
      늘어난 줄 수만큼만 아래로 길어진다 — 옆 사람 쪽으로 번지지 않는다. */
-  const roleLines = detail ? wrapText(p.role, Math.max(6, Math.round(14 / (infoSize/11)))) : [];
-  const noteLines = detail ? wrapText(p.note, Math.max(7, Math.round(16 / (memoSize/10)))).slice(0, 6) : [];
+  const roleLines = detail ? wrapText(p.role, Math.max(6, Math.round(14 / (roleSize/11)))) : [];
+  const occupationLines = detail ? wrapText(p.occupation, Math.max(6, Math.round(14 / (occupationSize/11)))) : [];
+  const religionLines = detail ? wrapText(p.religion, Math.max(6, Math.round(14 / (religionSize/11)))) : [];
   const sp = Math.max(nameSize/13,infoSize/11);           // 세로 줄 간격 — 글자보다 적게 늘려 그만큼만 벌어지게
   let y = 30 + nameSize*1.1;
 
@@ -1824,24 +1832,31 @@ function PersonNode({ p, selected, detail, li, onDown, attrChips, events, ts = 1
       {attrChips && attrChips.length > 0 && (
         <g>
           {/* 기호 옆 척도 칩 — 요청에 따라 크기를 키워 한눈에 읽히게 */}
-          {attrChips.map((c, i) => (
-            <g key={c.key} transform={`translate(34,${-22 + i * 19})`}>
-              <rect x={0} y={-8} width={56} height={16} rx={8} fill="#fff" stroke={c.col||T.ink2} strokeWidth={1.1} opacity={0.97} />
-              <rect x={1} y={-7} width={Math.max(3, 54 * c.frac)} height={14} rx={7} fill={c.col||T.ink2} opacity={0.18} />
-              <text x={28} y={3} textAnchor="middle" fontSize={9.5} fontFamily={FB} fontWeight={700} fill={c.col||T.ink2}>{c.text}</text>
+          {attrChips.map((c, i) => {
+            const sz=textSize(p.scaleSize,12*ts), w=Math.max(68,Math.min(150,c.text.length*sz*.8+18)), h=sz+9;
+            return <g key={c.key} transform={`translate(34,${-23 + i * (h+4)})`}>
+              <rect x={0} y={-h/2} width={w} height={h} rx={h/2} fill="#fff" stroke={c.col||T.ink2} strokeWidth={1.1} opacity={0.97} />
+              <rect x={1} y={-h/2+1} width={Math.max(3,(w-2) * c.frac)} height={h-2} rx={(h-2)/2} fill={c.col||T.ink2} opacity={0.18} />
+              <text x={w/2} y={sz*.34} textAnchor="middle" fontSize={sz} fontFamily={FB} fontWeight={700} fill={c.col||T.ink2}>{c.text}</text>
               <title>{c.title}</title>
-            </g>
-          ))}
+            </g>;
+          })}
         </g>
       )}
+      {p.addi && p.addiKind && <g transform={`translate(34,${-23 + (attrChips?.length||0)*(textSize(p.scaleSize,12*ts)+13)})`}>
+        <rect x={0} y={-10} width={Math.max(80,(p.addiOther||p.addiKind).length*11+36)} height={20} rx={10} fill="#FFF7E9" stroke={T.amber} strokeWidth={1.1}/>
+        <text x={9} y={4} fontSize={11} fontFamily={FB} fontWeight={600} fill={T.ink2}>{tr(['Addiction','중독','成癮'],li)}: {p.addiKind==='other' ? (p.addiOther||tr(['Other','기타','其他'],li)) : tr(ADDI_KINDS[p.addiKind]||ADDI_KINDS.other,li)}</text>
+      </g>}
       {p.birth && <text x={-31} y={-27} textAnchor="end" fontSize={infoSize*10.5/11} fill={T.ink2} fontFamily={FM}>{`'${String(p.birth).slice(2)}`}</text>}
       {p.death && <text x={31} y={-27} fontSize={infoSize*10.5/11} fill={T.ink2} fontFamily={FM}>{`'${String(p.death).slice(2)}`}</text>}
       <text y={y} textAnchor="middle" fontSize={nameSize} fontWeight={600} fill={T.ink} fontFamily={FB}
         stroke="#fff" strokeWidth={4.5} strokeLinejoin="round" paintOrder="stroke">{personName(p, li)}</text>
       {roleLines.map((l, i) => (
-        <text key={"r" + i} y={(y += infoSize*1.35)} textAnchor="middle" fontSize={infoSize} fill={T.sage} fontFamily={FB} fontWeight={500}
+        <text key={"r" + i} y={(y += roleSize*1.35)} textAnchor="middle" fontSize={roleSize} fill={T.sage} fontFamily={FB} fontWeight={500}
           stroke="#fff" strokeWidth={4} strokeLinejoin="round" paintOrder="stroke">{l}</text>
       ))}
+      {occupationLines.map((l, i) => <text key={'o'+i} y={(y += occupationSize*1.35)} textAnchor="middle" fontSize={occupationSize} fill={T.sage} fontFamily={FB} fontWeight={500} stroke="#fff" strokeWidth={4} paintOrder="stroke">{l}</text>)}
+      {religionLines.map((l, i) => <text key={'g'+i} y={(y += religionSize*1.35)} textAnchor="middle" fontSize={religionSize} fill={T.sage} fontFamily={FB} fontWeight={500} stroke="#fff" strokeWidth={4} paintOrder="stroke">{l}</text>)}
       {detail && flags.length > 0 && (
         <g transform={`translate(0,${(y += 15 * sp)})`}>
           {flags.map(([label, c], i) => {
@@ -1857,13 +1872,6 @@ function PersonNode({ p, selected, detail, li, onDown, attrChips, events, ts = 1
               </g>
             );
           })}
-        </g>
-      )}
-      {noteLines.length > 0 && (
-        <g transform={`translate(0,${(y += 10 * sp)})`}>
-          <rect x={-64} y={0} width={128} height={noteLines.length * memoSize*1.4 + 9} rx={4} fill="#FFFCF3" stroke="#E9DFC7" strokeWidth={1} />
-          <rect x={-64} y={0} width={2.5} height={noteLines.length * memoSize*1.4 + 9} fill={T.amber} />
-          {noteLines.map((l, i) => <text key={i} x={-58} y={memoSize*1.4 + i * memoSize*1.4} fontSize={memoSize} fill={T.ink2} fontFamily={FB}>{l}</text>)}
         </g>
       )}
       {events && events.length > 0 && (
@@ -1882,14 +1890,37 @@ function PersonNode({ p, selected, detail, li, onDown, attrChips, events, ts = 1
 }
 
 /* ══ couple line + children ═════════════════════════════════════ */
+function PersonMemo({p,doc,viewK,onMove,onSelect}) {
+  if (!p.note || p.gender==='object' || p.preg) return null;
+  const size=textSize(p.noteSize,10), width=180;
+  const lines=wrapText(p.note,Math.max(8,Math.round(23*10/size)));
+  const height=Math.max(28,lines.length*size*1.42+13);
+  const base={x:p.x-width/2,y:p.y+personClearance(p,true)+12};
+  const offset=doc.cardPos?.[`personMemo:${p.id}`]||{dx:0,dy:0};
+  const pos={x:base.x+(offset.dx||0),y:base.y+(offset.dy||0)};
+  const drag=onMove?(e)=>{
+    e.stopPropagation();e.preventDefault();
+    const node=e.currentTarget,startX=e.clientX,startY=e.clientY;
+    node.setPointerCapture(e.pointerId);
+    const move=ev=>onMove(`personMemo:${p.id}`,{dx:(offset.dx||0)+(ev.clientX-startX)/(viewK||1),dy:(offset.dy||0)+(ev.clientY-startY)/(viewK||1)});
+    const end=ev=>{node.releasePointerCapture(ev.pointerId);node.removeEventListener('pointermove',move);node.removeEventListener('pointerup',end);node.removeEventListener('pointercancel',end);};
+    node.addEventListener('pointermove',move);node.addEventListener('pointerup',end);node.addEventListener('pointercancel',end);
+  }:undefined;
+  return <g data-person-memo={p.id} transform={`translate(${pos.x},${pos.y})`} onPointerDown={drag}
+    onDoubleClick={onSelect?(e)=>{e.stopPropagation();onSelect(p.id);}:undefined} style={onMove?{cursor:'grab',touchAction:'none'}:undefined}>
+    <rect width={width} height={height} rx={8} fill="#FFFCF5" stroke="#D8C8A7" strokeWidth={1.1}/>
+    <rect x={0} width={3} height={height} rx={1.5} fill={T.amber}/>
+    {lines.map((line,i)=><text key={i} x={10} y={size*1.4+i*size*1.42} fontSize={size} fontFamily={FB} fill={T.ink2}>{line}</text>)}
+  </g>;
+}
 function personClearance(p, detail) {
   if(!p)return 58;
-  const name=textSize(p.nameSize,13), info=textSize(p.infoSize,11), memo=textSize(p.noteSize,10);
+  const name=textSize(p.nameSize,13), info=textSize(p.infoSize,11);
   let h=Math.max(58,30+name*1.1+12);
   if(!detail)return h;
-  if(p.role)h+=wrapText(p.role,Math.max(6,Math.round(14/(info/11)))).length*info*1.35;
+  for(const [value,size] of [[p.role,textSize(p.roleSize,11)],[p.occupation,textSize(p.occupationSize,11)],[p.religion,textSize(p.religionSize,11)]])
+    if(value)h+=wrapText(value,Math.max(6,Math.round(14/(size/11)))).length*size*1.35;
   if(p.phys||p.ment||p.addi)h+=16*Math.max(name/13,info/11);
-  if(p.note)h+=Math.min(6,wrapText(p.note,Math.max(7,Math.round(16/(memo/10)))).length)*memo*1.4+20;
   return h;
 }
 function UnionEdge({ u, a, b, kids, level = 0, detail, selected, onSelect, li = 1 }) {
@@ -2978,6 +3009,7 @@ function StandardScene({ doc, li, detail, sel, showStory, showTL, hhDraft, pendi
           selected={(sel?.kind === "person" && sel.id === p.id) || pending?.includes(p.id) || hhDraft?.members.includes(p.id)}
           onDown={onDown ? (e) => onDown(e, p) : NOOP} />
       ))}
+      {detail && doc.people.map(p=><PersonMemo key={`memo:${p.id}`} p={p} doc={doc} viewK={viewK} onMove={onCardMove} onSelect={onPerson}/>)}
       {showStory && <StoryCardGroup kind="story" doc={doc} li={li} blocks={storyBlocks} baseX={b.minX - 400} baseY={b.minY - 70}
         title={tr(S.storyTitle, li)} accent={T.pine} split={!!doc.storySplit} viewK={viewK}
         onMove={onCardMove} onSplit={onCardSplit} onEdit={onCardEdit} />}
@@ -3080,6 +3112,12 @@ function docBounds(doc, opts = {}) {
   const extra=(doc.notes||[]).flatMap(n=>{const r=noteBounds(n);
     const pts=noteAnchorList(n).flatMap(a=>noteRoute(n,doc,true,a)?.points||[]);
     return [{x:r.x,y:r.y},{x:r.x+r.w,y:r.y+r.h},...pts];});
+  (doc.people||[]).filter(p=>p.note&&p.gender!=='object'&&!p.preg).forEach(p=>{
+    const size=textSize(p.noteSize,10), lines=wrapText(p.note,Math.max(8,Math.round(23*10/size)));
+    const offset=doc.cardPos?.[`personMemo:${p.id}`]||{};
+    const x=p.x-90+(offset.dx||0), y=p.y+personClearance(p,true)+12+(offset.dy||0);
+    extra.push({x,y},{x:x+180,y:y+Math.max(28,lines.length*size*1.42+13)});
+  });
   (doc.ink||[]).forEach(st=>st.pts.forEach(p=>extra.push({x:p[0],y:p[1]})));
   const x=Math.min(left,...extra.map(p=>p.x-24)),y=Math.min(top,...extra.map(p=>p.y-24));
   return {x,y,w:Math.max(left+w,...extra.map(p=>p.x+24))-x,h:Math.max(top+h,...extra.map(p=>p.y+24))-y};
@@ -4302,7 +4340,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                     return (
                     <div key={k} className="flex items-center" style={{gap:6}}>
                       {L ? (
-                        <input value={L.name} placeholder={tr(S.customScaleEx, li)[ci-1] || t("layName")}
+                        <input value={L.id==='a1'?tr(S.customScaleEx,li)[0]:L.name} readOnly={L.id==='a1'} placeholder={tr(S.customScaleEx, li)[ci-1] || t("layName")}
                           onChange={(e)=>setNm(e.target.value)}
                           style={{ ...inputStyle, width:96, flexShrink:0, borderRadius:7, fontSize:11.5, padding:"3px 7px",
                             fontWeight:600, color:cc, borderStyle: named ? "solid" : "dashed" }} />
@@ -4320,9 +4358,9 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                         {live && typeof selPerson.attrs?.[k]==="number" ? selPerson.attrs[k] : "—"}
                       </span>
                       {/* 자리를 맞추려고 ✕ 칸은 늘 두되, 이름이 있을 때만 보인다 */}
-                      <button type="button" title={t("del")} onClick={()=>L&&named&&setNm("")}
+                      <button type="button" title={t("del")} onClick={()=>L&&named&&L.id!=='a1'&&setNm("")}
                         style={{ background:"none", border:"none", color:T.faint, cursor:"pointer", fontSize:12,
-                          padding:"1px 3px", width:18, visibility: L&&named ? "visible" : "hidden" }}>✕</button>
+                          padding:"1px 3px", width:18, visibility: L&&named&&L.id!=='a1' ? "visible" : "hidden" }}>✕</button>
                     </div>
                   );})}
                 </div>
@@ -4827,6 +4865,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                   <Field label={t("nameF")}><input value={selPerson.name} placeholder={selPerson.tkey ? tr(TEMPLATE_NAMES[selPerson.tkey], li) : ""} onChange={(e) => updatePerson(selPerson.id, { name: e.target.value })} style={inputStyle} /></Field>
                   <TextSizePicker label={tr(["Name text size","이름 글자 크기","姓名字級"],li)} value={textSize(selPerson.nameSize,13)} onChange={v=>updatePerson(selPerson.id,{nameSize:v})}/>
                   <TextSizePicker label={tr(["Information text size","정보 글자 크기","資料字級"],li)} value={textSize(selPerson.infoSize,11)} onChange={v=>updatePerson(selPerson.id,{infoSize:v})}/>
+                  <TextSizePicker label={tr(["Scale label size","분화·척도 글자 크기","量尺標籤字級"],li)} value={textSize(selPerson.scaleSize,12)} onChange={v=>updatePerson(selPerson.id,{scaleSize:v})}/>
                   <TextSizePicker label={tr(["Memo text size","인물 메모 글자 크기","人物備註字級"],li)} value={textSize(selPerson.noteSize,10)} onChange={v=>updatePerson(selPerson.id,{noteSize:v})}/>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                     {[["male", `□ ${t("male")}`], ["female", `○ ${t("female")}`]].map(([g, l]) => (
@@ -4870,6 +4909,11 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                   <Field label={`${t("roleF")} — ${t("roleHint")}`}>
                     <input value={selPerson.role} onChange={(e) => updatePerson(selPerson.id, { role: e.target.value })} style={inputStyle} />
                   </Field>
+                  <TextSizePicker label={tr(["Role text size","역할 글자 크기","角色字級"],li)} value={textSize(selPerson.roleSize,11)} onChange={v=>updatePerson(selPerson.id,{roleSize:v})}/>
+                  <Field label={tr(["Occupation","직업","職業"],li)}><input value={selPerson.occupation||''} onChange={e=>updatePerson(selPerson.id,{occupation:e.target.value})} style={inputStyle}/></Field>
+                  <TextSizePicker label={tr(["Occupation text size","직업 글자 크기","職業字級"],li)} value={textSize(selPerson.occupationSize,11)} onChange={v=>updatePerson(selPerson.id,{occupationSize:v})}/>
+                  <Field label={tr(["Religion","종교","宗教"],li)}><input value={selPerson.religion||''} onChange={e=>updatePerson(selPerson.id,{religion:e.target.value})} style={inputStyle}/></Field>
+                  <TextSizePicker label={tr(["Religion text size","종교 글자 크기","宗教字級"],li)} value={textSize(selPerson.religionSize,11)} onChange={v=>updatePerson(selPerson.id,{religionSize:v})}/>
                   {/* 본인·사망·신체질환 — 개인 메모 앞으로 */}
                   <div className="gs-person-flags grid grid-cols-2" style={{ background: "#fff", borderRadius: 10,
                     border: "1px solid rgba(22,32,42,.13)", boxShadow: "0 1px 2px rgba(22,32,42,.05)", overflow: "hidden" }}>
@@ -4889,6 +4933,13 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                         <Check label={lab.split(" — ")[0]} title={lab} color={c} checked={selPerson[k]} onChange={(v) => updatePerson(selPerson.id, { [k]: v })} />
                         {selPerson[k] && (
                           <div className="flex items-center" style={{ gap: 5, marginTop: 4, paddingLeft: 22, flexWrap: "wrap" }}>
+                            {k==='addi' && <>
+                              <select aria-label={tr(['Addiction type','중독 종류','成癮類型'],li)} value={selPerson.addiKind||''} onChange={e=>updatePerson(selPerson.id,{addiKind:e.target.value})} style={{...inputStyle,width:120,fontSize:11.5}}>
+                                <option value="">{tr(['Choose type','종류 선택','選擇類型'],li)}</option>
+                                {Object.entries(ADDI_KINDS).map(([kind,label])=><option key={kind} value={kind}>{tr(label,li)}</option>)}
+                              </select>
+                              {selPerson.addiKind==='other'&&<input aria-label={tr(['Other addiction','기타 중독','其他成癮'],li)} value={selPerson.addiOther||''} onChange={e=>updatePerson(selPerson.id,{addiOther:e.target.value})} placeholder={tr(['Describe','내용 입력','輸入內容'],li)} style={{...inputStyle,width:110,fontSize:11.5}}/>}
+                            </>}
                             <input value={selPerson[k + "From"] || ""} placeholder={t("fromY")} inputMode="numeric"
                               onChange={(e) => updatePerson(selPerson.id, { [k + "From"]: e.target.value })}
                               style={{ ...inputStyle, width: 62, padding: "5px 7px", fontSize: 11.5 }} />
@@ -4905,6 +4956,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                   <Field label={`${t("noteF")} — ${t("noteHint")}`}>
                     <textarea rows={4} value={selPerson.note} onChange={(e) => updatePerson(selPerson.id, { note: e.target.value })} style={{ ...inputStyle, resize: "vertical" }} />
                   </Field>
+                  <div style={{fontSize:11,color:T.mute}}>{tr(['Drag the personal memo on the canvas to reposition it.','개인 메모는 가계도 화면에서 끌어서 옮길 수 있습니다.','個人備註可在家系圖畫面拖曳移動。'],li)}</div>
                   {/* 분화·척도는 손 가는 빈도가 낮아 아래로 내린다. */}
                   {selPerson.gender !== "object" && !selPerson.preg && (
                     <>
@@ -6470,8 +6522,29 @@ const noteLines = text => {
     const w=wrapText(line,n); return w.length?w:[""];
   });
 };
+const balancedNoteLines = text => String(text||'').replace(/\u200B/g,'').split('\n').flatMap(line=>{
+  const initial=noteLines(line);
+  if(initial.length<2 || TK_RE.test(line) || !/\s/.test(line))return initial;
+  const words=line.trim().split(/\s+/), out=[];
+  if(words.length<initial.length)return initial;
+  const limit=/[\uac00-\ud7a3\u3400-\u9fff]/.test(line)?NOTE_WRAP:Math.round(NOTE_WRAP*1.7);
+  let start=0;
+  for(let row=0;row<initial.length-1;row++){
+    const remaining=initial.length-row, target=words.slice(start).join(' ').length/remaining;
+    let end=start+1,best=Infinity;
+    for(let i=start+1;i<=words.length-(remaining-1);i++){
+      const length=words.slice(start,i).join(' ').length;
+      if(length>limit+3)break;
+      const difference=Math.abs(length-target);
+      if(difference<best){best=difference;end=i;}
+    }
+    out.push(words.slice(start,end).join(' '));start=end;
+  }
+  out.push(words.slice(start).join(' '));
+  return out.some(s=>s.length>limit+4)?initial:out;
+});
 function noteBounds(n) {
-  const size=textSize(n.size,12), lines=noteLines(n.text);
+  const size=textSize(n.size,12), lines=balancedNoteLines(n.text);
   const widthOf=line=>(TK_RE.test(line)?graphemes(line):[...line]).reduce((sum,ch)=>sum+(/[\uac00-\ud7a3\u3400-\u9fff]/.test(ch)?1:/[\u1780-\u17FF]/.test(ch)?.85:/[\u0E00-\u0E7F]/.test(ch)?.65:.62)*size,0);
   const width=Math.max(64,...lines.map(widthOf))+24;
   const steps=lines.map(line=>TK_RE.test(line)?1.75:1.4);          // 태국어·크메르어 줄은 부호가 쌓이므로 줄 간격을 넓힌다
@@ -6618,8 +6691,9 @@ function NoteLayer({notes,doc,hideId,selected,detail=true,onDown,onEdit,onBend,v
           aria-label={n.text} onPointerDown={e=>onDown?.(e,n)} onDoubleClick={e=>{e.stopPropagation();onEdit?.(n);}}
           onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();onEdit?.(n);}}}
           style={{cursor:onDown?'grab':'default',touchAction:'none'}} pointerEvents={onDown?'auto':'none'}>
-          <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={10} fill="#fff" fillOpacity={.97}
-            stroke={isSelected?T.pine:col} strokeWidth={isSelected?2:1.2} strokeDasharray={isSelected?undefined:'5 3'}/>
+          <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={11} fill="#FCFEFF" fillOpacity={.98}
+            stroke={isSelected?T.pine:'#91A8BF'} strokeWidth={isSelected?1.8:1.15}/>
+          <path d={`M ${b.x+8} ${b.y} H ${b.x+b.w-8}`} stroke={col} strokeWidth={2} opacity={.45} pointerEvents="none"/>
           <text x={n.x} y={n.y} fontSize={b.size} fontFamily={FB} fontWeight={500} fill={col} pointerEvents="none">
             {b.lines.map((line,i)=><tspan key={i} x={n.x} dy={i?b.size*b.steps[i]:0}>{line}</tspan>)}
           </text>
@@ -7173,11 +7247,15 @@ async function translateSeq(text, fromLabel, toLabel, { concurrency = 3, onSente
 
 /* 예전에 저장한 파일에는 새로 생긴 칸이 없다. 열 때 기본값을 채워
    넣어, 오래된 사례가 열리지 않는 일이 없게 한다. */
-const withDefaults = (d) => normalizeUnions({
-  ...emptyDoc(), ...normalizeTextSettings(d),
-  attrLayers: (d && d.attrLayers && d.attrLayers.length)
-    ? d.attrLayers : emptyDoc().attrLayers,
-});
+const withDefaults = (d) => {
+  const normalized=normalizeTextSettings(d);
+  return normalizeUnions({
+    ...emptyDoc(), ...normalized,
+    people:(normalized.people||[]).map(p=>({...p,roleSize:textSize(p.roleSize,textSize(p.infoSize,11)),occupationSize:textSize(p.occupationSize,11),religionSize:textSize(p.religionSize,11),scaleSize:textSize(p.scaleSize,12)})),
+    attrLayers: (d && d.attrLayers && d.attrLayers.length)
+      ? [{id:'a1',name:'공감'},...d.attrLayers.filter(L=>L.id!=='a1')] : emptyDoc().attrLayers,
+  });
+};
 const emptyDoc = () => ({
   v: 2, title: "", people: [], unions: [], bonds: [], households: [], triangles: [], events: [], transitions: [], tlgPos: {}, ink: [], notes: [],
   story: { problem: "", history: "", strengths: "", note: "" },
@@ -7187,7 +7265,7 @@ const emptyDoc = () => ({
      던져두면 이 기능이 있는지조차 모르고 지나치기 쉬워, 새 가계도는
      예시 이름을 채운 채로 시작한다 — 마음에 안 들면 지우거나 고쳐
      쓰면 된다. */
-  attrLayers: [{ id: "a1", name: "" }, { id: "a2", name: "" }, { id: "a3", name: "" }],
+  attrLayers: [{ id: "a1", name: "공감" }, { id: "a2", name: "" }, { id: "a3", name: "" }],
   textSettingsVersion: 2, storyFontSizes: {}, contextFontSizes: {},
   textScale: 1,   // 글자 배율 — 이름·역할·메모·사건·설명박스에 함께 적용
   cardPos: {},     // 이야기·맥락 상자를 직접 옮기면 그 자리를 여기에 기억해 둔다. 키: "story" | "story:problem" 등
@@ -7262,6 +7340,7 @@ function AppInner() {
   const [teaserOpen, setTeaserOpen] = useState(false);   // 기본판의 번역·통역 안내창
   const noteBridge = useRef(null);                       // 번역 띠 → 설명 박스 (Editor가 채운다)
   const [saveDlg, setSaveDlg] = useState(false);
+  const [saveAsMode, setSaveAsMode] = useState(false);
   const [fileMenuOpen, setFileMenuOpen] = useState(false);   // 헤더의 '파일' 메뉴 — 저장·불러오기·인쇄를 한데 모은다
   /* 헤더의 '종료 및 저장'은 저장한 뒤 홈으로 나가야 한다. 반면 Ctrl+S나
      편집기 안의 '저장'은 계속 그리던 걸 이어 그려야 하므로 나가지
@@ -7408,24 +7487,33 @@ function AppInner() {
       flash(t("clearedDevice"));
     } catch {}
   };
-  const saveCase = async (name, dest) => {
+  const saveCase = async (name, dest, asNew=false) => {
     const title = (name ?? doc.title ?? "").trim();
     if (dest === "file") {
       const withTitle = { ...doc, title };
       const blob = new Blob([JSON.stringify(withTitle, null, 2)], { type: "application/json" });
-      const res = await saveAs(blob, `${title || "genogram"}.genogram.json`, "application/json", "Genogram data (JSON)");
-      if (res !== "cancelled") { patchDoc(withTitle); flash(t("saved")); }
-      return res;
+      const result=await saveAs(blob,`${title || 'genogram'}.genogram.json`,"application/json","Genogram data (JSON)");
+      if(result!=='cancelled'){patchDoc(withTitle);flash(t('saved'));}
+      return result;
     }
-    if (!storage) return saveCase(name, "file");
-    const id = doc.id || uid();
+    if (!storage) return saveCase(name, "file",asNew);
+    const id = asNew ? uid() : (doc.id || uid());
     const next = { ...doc, id, title, savedAt: new Date().toISOString() };
     try {
       await storage.set(`gs:case:${id}`, JSON.stringify(next));
       const idx = [{ id, title: next.title, savedAt: next.savedAt }, ...cases.filter((c) => c.id !== id)];
       await storage.set("gs:index", JSON.stringify(idx));
-      setCases(idx); patchDoc(next); flash(t("saved")); return "saved";
+      setCases(idx);patchDoc(next);flash(t("saved"));return "saved";
     } catch { flash("!"); return "failed"; }
+  };
+  const requestSave = (asNew=false, exit=false) => {
+    setFileMenuOpen(false);
+    setSaveAsMode(asNew);setExitAfterSave(exit);setSaveDlg(true);
+  };
+  const exitCase = async () => {
+    setFileMenuOpen(false);
+    if (JSON.stringify(doc)===cleanRef.current) {setScreen('home');return;}
+    requestSave(false,true);
   };
   /* 저장하지 않은 작업(지금 그리는 것, 지난번에 남은 임시저장)을 새로 시작하거나 다른 가계도를 열 때 조용히 잃지 않도록,
      그 자리에서 '저장한 가계도'에 (자동 보관)으로 저장해 둔다. 저장이 안 되면(저장소 없음·실패) 아무것도 지우지 않고 그대로 둔다. */
@@ -7450,7 +7538,7 @@ function AppInner() {
   };
   const loadCase = async (id) => {
     await keepUnsaved();
-    try { const r = await storage.get(`gs:case:${id}`); if (r?.value) { resetDoc(withDefaults(JSON.parse(r.value))); flash(t("open")); } } catch {}
+    try { const r = await storage.get(`gs:case:${id}`); if (r?.value) { resetDoc(withDefaults(JSON.parse(r.value)));flash(t("open")); } } catch {}
   };
   const deleteCase = async (id) => {
     try {
@@ -7508,8 +7596,8 @@ function AppInner() {
                     background: "#fff", border: `1px solid ${T.rule}`, borderRadius: 10, boxShadow: "0 10px 26px rgba(22,32,42,.22)",
                     padding: 5, display: "flex", flexDirection: "column", fontFamily: FB }}>
                     {[
-                      [t("fileSave"), () => { setSaveDlg(true); setFileMenuOpen(false); }],
-                      [t("exitSave"), () => { setExitAfterSave(true); setSaveDlg(true); setFileMenuOpen(false); }],
+                      [t("fileSave"), () => requestSave()],
+                      [t("fileSaveAs"), () => requestSave(true)],
                     ].map(([label, fn]) => (
                       <button key={label} type="button" onClick={fn} style={fileMenuItem}>{label}</button>
                     ))}
@@ -7521,6 +7609,8 @@ function AppInner() {
                     ))}
                     <div style={{ height: 1, background: T.rule, margin: "4px 2px" }} />
                     <button type="button" onClick={() => { setScreen("export"); setFileMenuOpen(false); }} style={fileMenuItem}>{t("printExport")}</button>
+                    <div style={{ height: 1, background: T.rule, margin: "4px 2px" }} />
+                    <button type="button" onClick={exitCase} style={fileMenuItem}>{t("exitSave")}</button>
                   </div>
                 </>)}
               </div>
@@ -7588,7 +7678,7 @@ function AppInner() {
             resumeDraft={doc.people.length ? () => setScreen("draw") : resumeDraft}
             dropDraft={doc.people.length ? () => { resetDoc(emptyDoc()); storage?.delete("gs:draft").catch(() => {}); } : dropDraft}
             autosaveOn={autosaveOn} setAutosave={setAutosave} deleteAllOnDevice={deleteAllOnDevice} />}
-          {screen === "draw" && <Editor key={docEpoch} doc={doc} setDoc={setDoc} li={li} cases={cases} storageOK={storageOK} openSave={() => setSaveDlg(true)} onOpenFile={() => fileRef.current?.click()} loadCase={loadCase} deleteCase={deleteCase} flash={flash} templateRef={templateRef} panelRef={panelRef} noteBridge={noteBridge} toolHidden={toolHidden}
+          {screen === "draw" && <Editor key={docEpoch} doc={doc} setDoc={setDoc} li={li} cases={cases} storageOK={storageOK} openSave={() => requestSave()} onOpenFile={() => fileRef.current?.click()} loadCase={loadCase} deleteCase={deleteCase} flash={flash} templateRef={templateRef} panelRef={panelRef} noteBridge={noteBridge} toolHidden={toolHidden}
             undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />}
           {screen === "export" && <ExportScreen doc={doc} setDoc={setDoc} li={li} exportJSON={exportJSON} flash={flash} onBackToDraw={() => setScreen("draw")} />}
             {screen === "analysis" && <AnalysisScreen doc={doc} setDoc={setDoc} li={li} onBackToDraw={() => setScreen("draw")} />}
@@ -7614,12 +7704,12 @@ function AppInner() {
           {HAS_AI ? tr(["Interpreter edition", "통역판", "口譯版"], li) : tr(["Basic edition", "기본판", "基本版"], li)} · {BUILD}
         </div>
         {saveDlg && (
-          <SaveDialog li={li} initialName={doc.title} storageOK={storageOK}
-            onSave={async (name, dest) => { const result = await saveCase(name, dest);
+          <SaveDialog li={li} initialName={doc.title} storageOK={storageOK} saveAsMode={saveAsMode}
+            onSave={async (name, dest) => { const result = await saveCase(name, dest, saveAsMode);
               if (result === "cancelled" || result === "failed") return;
-              setSaveDlg(false);
+              setSaveDlg(false);setSaveAsMode(false);
               if (exitAfterSave) { setExitAfterSave(false); setScreen("home"); } }}
-            onClose={() => { setSaveDlg(false); setExitAfterSave(false); }} />
+            onClose={() => { setSaveDlg(false); setExitAfterSave(false);setSaveAsMode(false); }} />
         )}
       </div>
     </LangCtx.Provider>
@@ -7634,7 +7724,7 @@ function AppInner() {
 /* ── 저장 대화상자 ─────────────────────────────────────────────────
    이름을 물어보고, 이 기기(빠른 재열람)와 파일(직접 폴더 선택) 가운데
    저장할 곳을 고르게 한다. 이름은 비워 둘 수 없다. */
-function SaveDialog({ li, initialName, storageOK, onSave, onClose }) {
+function SaveDialog({ li, initialName, storageOK, saveAsMode, onSave, onClose }) {
   const t = (k) => tr(S[k], li);
   const [name, setName] = useState(initialName || "");
   /* 기본값을 '파일로'로 바꾼다. 브라우저에 저장하면 캐시를 지울 때
@@ -7675,7 +7765,7 @@ function SaveDialog({ li, initialName, storageOK, onSave, onClose }) {
       <div onPointerDown={(e) => e.stopPropagation()}
         style={{ background: "#fff", borderRadius: 16, padding: 22, width: 380, maxWidth: "100%",
           boxShadow: "0 20px 48px rgba(22,32,42,.28)" }}>
-        <div style={{ fontFamily: FD, fontSize: 17, fontWeight: 600, marginBottom: 14 }}>{t("saveDlgTitle")}</div>
+        <div style={{ fontFamily: FD, fontSize: 17, fontWeight: 600, marginBottom: 14 }}>{saveAsMode?t('fileSaveAs'):t("saveDlgTitle")}</div>
 
         <div style={{ fontSize: 11.5, fontFamily: FB, fontWeight: 600, color: T.ink2, marginBottom: 5 }}>{t("saveNameLabel")}</div>
         <input ref={inputRef} value={name} placeholder={t("saveNamePh")}
@@ -8835,7 +8925,7 @@ function CoverGenogram() {
     </svg>
   );
 }
-function Home({li,setLi,go,onNew,cases,loadCase,storageOK,fileRef,onImport,draft,resumeDraft,dropDraft,autosaveOn,setAutosave,deleteAllOnDevice}) {
+function Home({li,setLi,go,onNew,onOpenFile,cases,loadCase,storageOK,fileRef,onImport,draft,resumeDraft,dropDraft,autosaveOn,setAutosave,deleteAllOnDevice}) {
   const t=k=>tr(S[k],li);
   return <div className="gs-home gs-cover">
     <header className="gs-home-header"><div className="gs-brand"><Logo size={34}/><strong>Genogram Studio</strong></div>
@@ -8848,7 +8938,7 @@ function Home({li,setLi,go,onNew,cases,loadCase,storageOK,fileRef,onImport,draft
            작업하다 만 것이 있으면 여기서 바로 보이고 이어받을 수 있어야
            한다. */}
         <div className="gs-home-actions"><button className="gs-primary" onClick={onNew}>＋ {t('m2')}</button>
-          <button className="gs-secondary" onClick={()=>fileRef.current?.click()}>{tr(['Open a case file','가계도 파일 열기','開啟個案檔案'],li)}</button></div>
+          <button className="gs-secondary" onClick={onOpenFile}>{tr(['Open a case file','가계도 파일 열기','開啟個案檔案'],li)}</button></div>
       </div>
       {draft?.doc && (
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
@@ -9310,6 +9400,9 @@ function ExportScreen({ doc, setDoc, li, exportJSON, flash, onBackToDraw }) {
   const choosePaper = (k) => { setPaper(k); try { localStorage.setItem(PAPER_KEY, k); } catch {} };
   const [minPt, setMinPt] = useState(10);
   const [report, setReport] = useState(null);
+  const [printChoice, setPrintChoice] = useState(false);
+  const [includeReview, setIncludeReview] = useState(true);
+  const [pendingPrint, setPendingPrint] = useState(false);
   const { storyBlocks, ctxBlocks } = familyStoryBlocks(doc, li);
   const ts = Math.max(TEXT_SCALE_MIN, Math.min(TEXT_SCALE_MAX, doc.textScale || 1));
   CURRENT_TEXT_SCALE = ts;   // docBounds 아래에서 설명박스 크기를 셀 때도 같은 배율을 쓴다
@@ -9359,24 +9452,29 @@ function ExportScreen({ doc, setDoc, li, exportJSON, flash, onBackToDraw }) {
     doc.households.length > 0,
     ppl.some((p) => p.note) || (doc.events || []).length > 0,
   ];
-  const printReport = async () => {
-    if (!report) return;
-    if (document.fonts?.ready) await document.fonts.ready;
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    window.print();
-  };
+  useEffect(() => {
+    if (!pendingPrint || !report || report.includeReview!==includeReview) return;
+    let cancelled=false;
+    (async()=>{
+      if (document.fonts?.ready) await document.fonts.ready;
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      if (!cancelled) { setPendingPrint(false); window.print(); }
+    })();
+    return ()=>{cancelled=true;};
+  },[pendingPrint,report,includeReview]);
+  const choosePrintReview = (value) => { setPrintChoice(false); setIncludeReview(value); setPendingPrint(true); };
   const reviewBlocks = [
     { head: t("checklist"), body: CHECKS.map((c,i) => `${checks[i] ? "●" : "○"} ${tr(c,li)}`).join("\n") },
     ...QUESTIONS.map((q,i) => ({head: "",body:`${i+1}. ${tr(q,li)}`+(q[3] ? `  (${q[3]})` : "")})),
   ];
   return (
     <div style={{flex:1,minHeight:0,overflowY:"auto"}}>
-      <div style={{maxWidth:1100,margin:"0 auto",padding:"24px 20px 50px"}}>
+      <div style={{maxWidth:1100,margin:"0 auto",padding:"18px 20px 42px"}}>
         <button onClick={onBackToDraw} style={{border:0,background:"none",color:T.mute,cursor:"pointer"}}>← {t("m2")}</button>
-        <h1 style={{fontFamily:FD,fontSize:26}}>{t("exTitle")}</h1>
-        <div data-noprint style={{background:"white",border:`1px solid ${T.rule}`,borderRadius:12,padding:18,marginBottom:18}}>
-          <h3 style={{margin:"0 0 12px",fontSize:15}}>{tr(["Print check","인쇄 확인","列印檢查"],li)}</h3>
-          <div className="flex" style={{gap:12,flexWrap:"wrap",alignItems:"center"}}>
+        <h1 style={{fontFamily:FD,fontSize:22,margin:'8px 0 12px'}}>{t("exTitle")}</h1>
+        <div data-noprint style={{background:"white",border:`1px solid ${T.rule}`,borderRadius:12,padding:13,marginBottom:12,fontSize:12,lineHeight:1.35}}>
+          <h3 style={{margin:"0 0 8px",fontSize:13}}>{tr(["Print check","인쇄 확인","列印檢查"],li)}</h3>
+          <div className="flex" style={{gap:8,flexWrap:"wrap",alignItems:"center"}}>
             <label>{tr(["Paper","용지","紙張"],li)} <select value={paper} onChange={e=>choosePaper(e.target.value)}>
               {Object.entries(PAPER_SIZES).map(([k,v])=><option key={k} value={k}>{tr(v.label,li)}</option>)}
             </select></label>
@@ -9389,19 +9487,19 @@ function ExportScreen({ doc, setDoc, li, exportJSON, flash, onBackToDraw }) {
               <GBtn active={exChronology} onClick={()=>{setExTlg(false);setExChronology(true);}}>{t("chronView")}</GBtn>
             </Group>
           </div>
-          <p style={{fontSize:13,lineHeight:1.65,color:T.mute}}>
-            {tr(["Genogram → Family story → Checklist and questions. This panel is not printed.","가계도 → 가족 전체 이야기 → 작성 점검·함께 읽을 질문 순서입니다. 이 안내 상자는 인쇄되지 않습니다.","家系圖 → 全家敘事 → 檢核與提問。此說明不列印。"],li)}<br/>
+          <p style={{fontSize:11.5,lineHeight:1.35,color:T.mute,margin:'8px 0'}}>
+            {tr(["Genogram → Family story → optional checklist and questions. This panel is not printed.","가계도 → 가족 전체 이야기 → 선택한 경우 작성 점검·함께 읽을 질문 순서입니다. 이 안내 상자는 인쇄되지 않습니다.","家系圖 → 全家敘事 → 可選的檢核與提問。此說明不列印。"],li)}<br/>
             {report && tr([`Genogram and annotations fit on one sheet · ${report.totalPages} pages.`, `가계도는 설명 상자까지 한 장에 맞춤 · 총 ${report.totalPages}쪽`, `家系圖與說明框縮放至一頁 · 共 ${report.totalPages} 頁。`],li)}
 
           </p>
-          <div className="flex" style={{gap:8,flexWrap:"wrap"}}>
-            <Btn tone="solid" disabled={!report} onClick={printReport}>{tr(["Print","인쇄","列印"],li)}</Btn>
-            <Btn disabled={!report} onClick={printReport}>{tr(["Save PDF","PDF 저장","儲存 PDF"],li)}</Btn>
+          <div className="flex" style={{gap:6,flexWrap:"wrap"}}>
+            <Btn tone="solid" disabled={!report} onClick={()=>setPrintChoice(true)}>{tr(["Print","인쇄","列印"],li)}</Btn>
+            <Btn disabled={!report} onClick={()=>setPrintChoice(true)}>{tr(["Save PDF","PDF 저장","儲存 PDF"],li)}</Btn>
             <Btn disabled={!report} onClick={()=>doExport("png")}>{tr(["Genogram PNG","가계도 PNG","家系圖 PNG"],li)}</Btn>
             <Btn disabled={!report} onClick={()=>doExport("svg")}>{tr(["Genogram SVG","가계도 SVG","家系圖 SVG"],li)}</Btn>
             <Btn onClick={exportJSON}>{t("exData")}</Btn>
           </div>
-          <p style={{fontSize:12,color:T.mute,marginBottom:0}}>{tr(["For PDF, choose Save as PDF in the print dialog. Use the selected paper, 100% scale, and turn off browser headers and footers.","PDF 저장은 인쇄 창에서 ‘PDF로 저장’을 선택하세요. 선택한 용지와 배율 100%를 사용하고, 브라우저의 머리글·바닥글은 꺼 주세요.","在列印視窗選擇儲存 PDF，使用所選紙張、100% 比例並關閉瀏覽器頁首頁尾。"],li)}</p>
+          <p style={{fontSize:11,lineHeight:1.35,color:T.mute,margin:'7px 0 0'}}>{tr(["For PDF, choose Save as PDF in the print dialog. Use the selected paper, 100% scale, and turn off browser headers and footers.","PDF 저장은 인쇄 창에서 ‘PDF로 저장’을 선택하세요. 선택한 용지와 배율 100%를 사용하고, 브라우저의 머리글·바닥글은 꺼 주세요.","在列印視窗選擇儲存 PDF，使用所選紙張、100% 比例並關閉瀏覽器頁首頁尾。"],li)}</p>
         </div>
         <svg aria-hidden="true" ref={svgRef} viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`} style={{position:"fixed",left:-100000,top:0,width:1000,height:700,visibility:"hidden"}}>
           {svgDefs()}
@@ -9413,7 +9511,18 @@ function ExportScreen({ doc, setDoc, li, exportJSON, flash, onBackToDraw }) {
           </g>
         </svg>
         <PrintReport svgRef={svgRef} paper={PAPER_SIZES[paper]} fontPt={minPt} doc={doc} li={li}
-          storyBlocks={storyBlocks} ctxBlocks={ctxBlocks} reviewBlocks={reviewBlocks} mode={`${exTlg}:${exChronology}`} onReady={setReport}/>
+          storyBlocks={storyBlocks} ctxBlocks={ctxBlocks} reviewBlocks={reviewBlocks} includeReview={includeReview} mode={`${exTlg}:${exChronology}`} onReady={setReport}/>
+        {printChoice && <div role="dialog" aria-modal="true" style={{position:'fixed',inset:0,zIndex:2000,background:'#14243a77',display:'grid',placeItems:'center',padding:16}}>
+          <div style={{background:'#fff',borderRadius:14,padding:22,width:'min(430px,100%)',boxShadow:'0 16px 48px #14243a35'}}>
+            <h2 style={{margin:'0 0 8px',fontSize:18}}>{tr(['Include the checklist and questions?','작성 점검·함께 읽을 질문을 인쇄할까요?','是否列印檢核與提問？'],li)}</h2>
+            <p style={{fontSize:13,color:T.mute,lineHeight:1.5}}>{tr(['The genogram is first, then the family story. The checklist and questions can be added at the end.','가계도 다음에 가족 전체 이야기가 나옵니다. 점검과 질문은 마지막에 추가할 수 있습니다.','家系圖後是家庭敘事。檢核與提問可加在最後。'],li)}</p>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+              <Btn tone="solid" onClick={()=>choosePrintReview(true)}>{tr(['Include','포함','包含'],li)}</Btn>
+              <Btn onClick={()=>choosePrintReview(false)}>{tr(['Do not include','제외','不包含'],li)}</Btn>
+              <Btn onClick={()=>setPrintChoice(false)}>{tr(['Cancel','취소','取消'],li)}</Btn>
+            </div>
+          </div>
+        </div>}
       </div>
     </div>
   );

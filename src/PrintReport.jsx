@@ -5,7 +5,7 @@ const MM = 96 / 25.4;
 const text = (li, ko, en, zh) => li === 1 ? ko : li === 2 ? zh : en;
 const styles = `
 .gs-report-sheet{box-sizing:border-box;background:white;color:#14243a;padding:12mm;font-family:'Noto Sans KR',system-ui,sans-serif;position:relative;overflow:hidden}
-.gs-report-heading{height:12mm;border-bottom:1px solid #ccd3dc;font-size:14pt;font-weight:700;margin:0 0 3mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs-report-heading{height:8mm;border-bottom:1px solid #ccd3dc;font-size:14pt;font-weight:700;margin:0 0 1mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gs-report-content{box-sizing:border-box;line-height:1.5;overflow-wrap:anywhere}
 .gs-report-content h3{font-size:1em;margin:0 0 2mm;color:#32577b;line-height:1.4}
 .gs-report-block{padding-bottom:4mm;white-space:pre-wrap;display:flow-root}
@@ -36,7 +36,7 @@ function StoryBlock({block}) {
 function Sheet({page, index, total, paper, fontPt, title}) {
   return <article className="gs-report-sheet" style={{width:`${paper.w}mm`,height:`${paper.h}mm`,fontSize:`${fontPt}pt`}}>
     <h2 className="gs-report-heading">{page.title}</h2>
-    <div className={`gs-report-content${page.kind === 'review' ? ' gs-report-review' : page.kind === 'story' ? ' gs-report-story' : ''}`} style={{height:`${paper.h-47}mm`,fontSize:`${fontPt}pt`,...(page.reviewLandscape?{gridTemplateColumns:"25fr 75fr"}:{})}}>
+    <div className={`gs-report-content${page.kind === 'review' ? ' gs-report-review' : page.kind === 'story' ? ' gs-report-story' : ''}`} style={{height:`${paper.h-41}mm`,fontSize:`${fontPt}pt`,...(page.reviewLandscape?{gridTemplateColumns:"25fr 75fr"}:{})}}>
       {page.svg ? <div style={{width:'100%',height:'100%'}} dangerouslySetInnerHTML={{__html:page.svg}}/> :
         page.columns ? page.columns.map((blocks,i)=><div key={i}>{page.columnTitles[i]&&<h3 className="gs-report-column-title">{page.columnTitles[i]}</h3>}{blocks.length>0&&<div className="gs-report-review-card">{i===1&&page.questionColumns?<div className="gs-question-columns">{page.questionColumns.map((col,k)=><div key={k}>{col.map((block,j)=><StoryBlock key={j} block={block}/>)}</div>)}</div>:blocks.map((block,j)=><StoryBlock key={j} block={block}/>)}</div>}</div>) :
         page.blocks.map((block,i)=><StoryBlock key={i} block={block}/>)}
@@ -62,7 +62,7 @@ function diagramPages(svg, paper, fontPt, heading) {
     if(size>0)smallest=Math.min(smallest,size);
   });
   if(!Number.isFinite(smallest))smallest=10;
-  const width=paper.w-24, height=paper.h-47;
+  const width=paper.w-24, height=paper.h-41;
   // The complete genogram, relationships and annotations always share one sheet.
   const scale=Math.min(width/box.w,height/box.h);
   const viewW=width/scale,viewH=height/scale;
@@ -70,7 +70,7 @@ function diagramPages(svg, paper, fontPt, heading) {
   clone.removeAttribute('style');clone.removeAttribute('id');clone.removeAttribute('aria-hidden');clone.style.display='block';
   clone.querySelectorAll('[data-print-background]').forEach(el=>{el.setAttribute('x',box.x);el.setAttribute('width',box.w);});
   clone.setAttribute('width','100%');clone.setAttribute('height','100%');
-  clone.setAttribute('viewBox',`${box.x-(viewW-box.w)/2} ${box.y-(viewH-box.h)/2} ${viewW} ${viewH}`);
+  clone.setAttribute('viewBox',`${box.x-(viewW-box.w)/2} ${box.y-6/scale} ${viewW} ${viewH}`);
   const pages=[{kind:'diagram',title:heading,svg:new XMLSerializer().serializeToString(clone)}];
   return {pages,box,smallestPt:smallest*scale*72/25.4};
 }
@@ -108,7 +108,7 @@ function paginate(blocks, measure, height, width) {
   return pages;
 }
 
-export default function PrintReport({svgRef, paper, fontPt, doc, li, storyBlocks, ctxBlocks, reviewBlocks, mode, onReady}) {
+export default function PrintReport({svgRef, paper, fontPt, doc, li, storyBlocks, ctxBlocks, reviewBlocks, includeReview=true, mode, onReady}) {
   const [pages,setPages]=useState([]),[error,setError]=useState(''),[zoom,setZoom]=useState(.6);
   const measureRef=useRef(null),previewRef=useRef(null);
   const title=doc.title || text(li,'제목 없는 가계도','Untitled genogram','未命名家系圖');
@@ -123,8 +123,10 @@ export default function PrintReport({svgRef, paper, fontPt, doc, li, storyBlocks
       if(document.fonts?.ready)await document.fonts.ready;
       if(cancelled || !svgRef.current || !measureRef.current)return;
       try{
-        const result=diagramPages(svgRef.current,paper,fontPt,text(li,'가계도','Genogram','家系圖'));
-        const height=(paper.h-47)*MM-2;
+        const participant=doc.people?.find(p=>p.proband && p.name?.trim())?.name.trim() || doc.people?.find(p=>p.name?.trim())?.name.trim();
+        const heading=participant ? `${participant} ${text(li,'가계도','Genogram','家系圖')}` : text(li,'가계도','Genogram','家系圖');
+        const result=diagramPages(svgRef.current,paper,fontPt,heading);
+        const height=(paper.h-41)*MM-2;
         const storyTitle=text(li,'가족 전체 이야기','Family story','全家敘事');
         const blocks=[...storyBlocks,...ctxBlocks];
         if(!blocks.length)blocks.push({head:storyTitle,body:text(li,'입력된 가족 이야기가 없습니다.','No family story has been entered.','尚未輸入家庭敘事。')});
@@ -133,7 +135,7 @@ export default function PrintReport({svgRef, paper, fontPt, doc, li, storyBlocks
         measureRef.current.className='gs-report-content gs-review-measure';
         const landscape=paper.w>paper.h, columnCount=landscape?2:1;
         const questionWidth=landscape?((paper.w-30)*.75-14)/2:(paper.w-30)*.68-8;
-        const review=paginate(reviewBlocks.slice(1),measureRef.current,height-20*MM,questionWidth);
+        const review=includeReview ? paginate(reviewBlocks.slice(1),measureRef.current,height-20*MM,questionWidth) : [];
         const last=[];
         for(let i=0;i<review.length;i+=columnCount){
           const columns=review.slice(i,i+columnCount);
@@ -142,10 +144,10 @@ export default function PrintReport({svgRef, paper, fontPt, doc, li, storyBlocks
             columnTitles:[i===0?text(li,'작성 점검','Checklist','繪製檢核'):'',i===0?text(li,'함께 읽을 질문','Questions for review','共同閱讀的提問'):text(li,'질문 (계속)','Questions (continued)','提問（續）')]});
         }
         setPages([...result.pages,...narrative,...last]);
-        onReady({box:result.box,diagramPages:result.pages.length,totalPages:result.pages.length+narrative.length+last.length,smallestPt:result.smallestPt});
+        onReady({box:result.box,diagramPages:result.pages.length,totalPages:result.pages.length+narrative.length+last.length,smallestPt:result.smallestPt,includeReview});
       }catch(e){setError(e.message);setPages([]);}
     })();return()=>{cancelled=true;};
-  },[doc,li,paper,fontPt,mode]);
+  },[doc,li,paper,fontPt,mode,includeReview]);
   const content=pages.map((page,i)=><Sheet key={i} page={page} index={i} total={pages.length} paper={paper} fontPt={fontPt} title={title}/>);
   return <>
     <style>{styles}</style>
