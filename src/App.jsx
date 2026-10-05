@@ -4990,7 +4990,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                   {[['occupation','occupationSize',tr(['Occupation','직업','職業'],li)],['religion','religionSize',tr(['Religion','종교','宗教'],li)],['role','roleSize',tr(['Other information','기타','其他資料'],li)]].map(([key,sizeKey,label])=>(
                     <div key={key} className="gs-person-info-field" style={{display:'flex',flexDirection:'column',gap:3}}>
                       <TextSizePicker label={label} value={textSize(selPerson[sizeKey],11)} onChange={v=>updatePerson(selPerson.id,{[sizeKey]:v})}/>
-                      <input aria-label={label} value={selPerson[key]||''} onChange={e=>updatePerson(selPerson.id,{[key]:e.target.value})} style={inputStyle}/>
+                      <input data-trans aria-label={label} value={selPerson[key]||''} onChange={e=>updatePerson(selPerson.id,{[key]:e.target.value})} style={inputStyle}/>
                     </div>
                   ))}
                   {/* 본인·사망·신체질환 — 개인 메모 앞으로 */}
