@@ -1,6 +1,6 @@
 {
  "generatedFrom": "src/App.jsx",
- "count": 1086,
+ "count": 1096,
  "items": [
   {
    "en": "Genogram Studio",
@@ -193,11 +193,11 @@
    "ambiguous": false
   },
   {
-   "en": "Add an event",
-   "ko": "사건 추가",
-   "zh": "新增事件",
+   "en": "2 · Event in a year",
+   "ko": "2 · 연도별 사건 추가",
+   "zh": "2 · 新增年度事件",
    "section": "S",
-   "words": 3,
+   "words": 6,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
@@ -2873,12 +2873,32 @@
    "ambiguous": false
   },
   {
-   "en": "Family transitions",
-   "ko": "가족 전환기",
-   "zh": "家庭轉換期",
+   "en": "1 · Period of change (optional)",
+   "ko": "1 · 변화가 이어진 기간 (선택)",
+   "zh": "1 · 變化持續的期間（選填）",
    "section": "S",
-   "words": 2,
+   "words": 6,
    "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Use this only when a change affected family relationships over time. It groups related events; it is not another copy of an event. For a one-day event, use Add an event below.",
+   "ko": "변화의 영향이 여러 해 이어졌을 때만 기간을 만드세요. 관련 사건을 묶는 기능이며, 같은 사건을 한 번 더 적는 칸이 아닙니다. 한 번 일어난 일은 아래 ‘사건 추가’에만 적으세요.",
+   "zh": "只有變化持續影響家庭關係時才建立期間。它用來彙整相關事件，不是重複輸入同一事件；單次事件請只填在下方的「新增事件」。",
+   "section": "S",
+   "words": 32,
+   "tier": 2,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Record what happened in a specific year once. If it belongs to a longer period of change, choose that period in the last field. Births, deaths, marriages and divorces already appear automatically when their years are entered on the genogram.",
+   "ko": "특정 연도에 일어난 일은 여기 한 번만 기록하세요. 오래 이어진 변화와 관련되면 마지막 칸에서 그 기간을 선택합니다. 출생·사망·결혼·이혼은 가계도에 연도를 입력하면 자동으로 표시됩니다.",
+   "zh": "特定年份發生的事只需在此記錄一次；若屬於較長的變化期間，請在最後一欄選擇該期間。出生、死亡、結婚與離婚在家系圖輸入年份後會自動顯示。",
+   "section": "S",
+   "words": 40,
+   "tier": 2,
    "uses": 1,
    "ambiguous": false
   },
@@ -2893,21 +2913,21 @@
    "ambiguous": false
   },
   {
-   "en": "Transition group",
-   "ko": "전환기 묶음",
-   "zh": "轉換期群組",
+   "en": "Related period of change",
+   "ko": "관련된 변화 기간",
+   "zh": "相關的變化期間",
    "section": "S",
-   "words": 2,
+   "words": 4,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
   },
   {
-   "en": "No group",
-   "ko": "묶지 않음",
-   "zh": "不分組",
+   "en": "No related period",
+   "ko": "관련 기간 없음",
+   "zh": "無相關期間",
    "section": "S",
-   "words": 2,
+   "words": 3,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
@@ -4533,6 +4553,16 @@
    "ambiguous": false
   },
   {
+   "en": "Available on an empty genogram",
+   "ko": "빈 가계도에서 사용할 수 있습니다",
+   "zh": "僅適用於空白家系圖",
+   "section": "Editor",
+   "words": 5,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
    "en": "Click again to finish annotation mode",
    "ko": "다시 누르면 설명 박스 도구가 꺼집니다",
    "zh": "再按一次結束說明框工具",
@@ -5158,6 +5188,16 @@
    "zh": "顯示全部關係名稱",
    "section": "Editor",
    "words": 4,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Record each event once. Add a period of change only when its effects continued, then link related events to it.",
+   "ko": "사건은 한 번만 기록하세요. 영향이 오래 이어졌을 때만 ‘변화 기간’을 만들고, 관련 사건을 그 기간에 연결합니다.",
+   "zh": "每件事只記錄一次。只有影響持續時才建立「變化期間」，再把相關事件連結至該期間。",
+   "section": "Editor",
+   "words": 20,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
@@ -9183,6 +9223,56 @@
    "ambiguous": false
   },
   {
+   "en": "A copy was downloaded; the original file was not changed.",
+   "ko": "복사본을 다운로드했습니다. 원본 파일은 바뀌지 않았습니다.",
+   "zh": "已下載副本；原始檔案未變更。",
+   "section": "AppInner",
+   "words": 10,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Could not save the file.",
+   "ko": "파일을 저장하지 못했습니다.",
+   "zh": "無法儲存檔案。",
+   "section": "AppInner",
+   "words": 5,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "This browser cannot overwrite the opened file. The original will not change. Choose browser storage or save a separate file.",
+   "ko": "이 브라우저에서는 불러온 파일을 덮어쓸 수 없습니다. 원본 파일은 바뀌지 않습니다. 브라우저에 저장하거나 새 파일로 저장해 주세요.",
+   "zh": "此瀏覽器無法覆寫開啟的檔案。原始檔案不會變更。請儲存至瀏覽器或另存新檔。",
+   "section": "AppInner",
+   "words": 20,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Could not overwrite the file.",
+   "ko": "파일을 덮어쓰지 못했습니다.",
+   "zh": "無法覆寫檔案。",
+   "section": "AppInner",
+   "words": 5,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Could not open the file.",
+   "ko": "파일을 열지 못했습니다.",
+   "zh": "無法開啟檔案。",
+   "section": "AppInner",
+   "words": 5,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
    "en": "Translate · Interpret",
    "ko": "번역 · 통역",
    "zh": "翻譯 · 口譯",
@@ -9199,7 +9289,7 @@
    "section": "AppInner",
    "words": 1,
    "tier": 1,
-   "uses": 4,
+   "uses": 5,
    "ambiguous": false
   },
   {
@@ -10153,21 +10243,51 @@
    "ambiguous": false
   },
   {
-   "en": "Translate + read aloud →",
-   "ko": "번역 + 읽어주기 →",
-   "zh": "翻譯並朗讀 →",
+   "en": "Translate + read",
+   "ko": "번역·읽기",
+   "zh": "翻譯朗讀",
    "section": "InterpreterSection",
-   "words": 5,
+   "words": 3,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
   },
   {
-   "en": "Translate →",
-   "ko": "번역 →",
-   "zh": "翻譯 →",
+   "en": "Replay translation",
+   "ko": "번역 다시 듣기",
+   "zh": "重播翻譯",
    "section": "InterpreterSection",
    "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Counsellor",
+   "ko": "상담사",
+   "zh": "諮商師",
+   "section": "InterpreterSection",
+   "words": 1,
+   "tier": 1,
+   "uses": 2,
+   "ambiguous": false
+  },
+  {
+   "en": "Client",
+   "ko": "내담자",
+   "zh": "來訪者",
+   "section": "InterpreterSection",
+   "words": 1,
+   "tier": 1,
+   "uses": 2,
+   "ambiguous": false
+  },
+  {
+   "en": "Translate when recording stops",
+   "ko": "마이크 종료 후 자동 통역",
+   "zh": "結束錄音後自動翻譯",
+   "section": "InterpreterSection",
+   "words": 4,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
@@ -10198,26 +10318,6 @@
    "zh": "播放中…",
    "section": "InterpreterSection",
    "words": 2,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Counsellor",
-   "ko": "상담사",
-   "zh": "諮商師",
-   "section": "InterpreterSection",
-   "words": 1,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Client",
-   "ko": "내담자",
-   "zh": "來訪者",
-   "section": "InterpreterSection",
-   "words": 1,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
@@ -10843,11 +10943,11 @@
    "ambiguous": false
   },
   {
-   "en": "Events linked to the same transition are encircled together across the history layers.",
-   "ko": "같은 전환기에 연결한 사건은 여러 역사 층을 가로질러 하나의 원으로 묶입니다.",
-   "zh": "連結至同一轉換期的事件，會跨越各歷史層級以同一橢圓圈組。",
+   "en": "The dashed outline on the chart shows the period; linked events remain in their original years.",
+   "ko": "도표의 점선 테두리는 변화 기간을, 연결한 사건은 각각의 연도를 나타냅니다.",
+   "zh": "圖上的虛線外框表示變化期間；連結的事件仍保留在各自的年份。",
    "section": "TransitionAdder",
-   "words": 13,
+   "words": 16,
    "tier": 1,
    "uses": 1,
    "ambiguous": false

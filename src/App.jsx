@@ -129,7 +129,22 @@ const FONTS = `*,*::before,*::after{box-sizing:border-box}body{margin:0}button,i
 .gs-editor-toolbar .gs-bond-option{min-height:32px!important;padding:5px 8px!important;border:0!important;border-radius:3px!important;background:transparent!important;box-shadow:none!important;font-size:12px!important}
 
 html[data-ui="th"] body :not(svg *){line-height:1.6!important}
-html[data-ui="km"] body :not(svg *){line-height:1.75!important}`; /* no external @import — the artifact sandbox only allows cdnjs.cloudflare.com,
+html[data-ui="km"] body :not(svg *){line-height:1.75!important}
+/* Keep editor chrome within the viewport; only the drawing is transformed. */
+.gs-app[data-screen="draw"]{position:fixed;inset:0;width:100%;height:100dvh!important;min-height:0;overscroll-behavior:none}
+.gs-workspace,.gs-canvas,.gs-inspector{min-height:0!important;min-width:0;overflow:hidden}
+.gs-app-header{padding:5px 10px!important;min-height:42px;gap:5px!important}
+.gs-editor-toolbar{padding:4px 7px!important;gap:3px!important;min-height:36px!important}
+.gs-editor-toolbar button{padding:5px 8px!important;min-height:28px!important;font-size:12px!important;gap:4px!important}
+.gs-editor-toolbar button:disabled{opacity:.45}
+.gs-inspector{width:300px!important}
+.gs-inspector .gs-panel-content{padding:8px!important;min-height:0;overscroll-behavior:contain}
+.gs-inspector .flex-col:not(label),.gs-inspector .gs-note-panel{gap:5px!important}
+.gs-inspector input:not([type=checkbox]):not([type=radio]):not([type=range]),.gs-inspector textarea,.gs-inspector select{min-height:28px!important;padding:4px 7px!important;font-size:12px!important;min-width:0}
+.gs-inspector button{min-height:27px!important;padding:5px 7px!important;font-size:11.5px!important}
+.gs-inspector .gs-help{font-size:12px!important;line-height:1.4!important}
+@media(max-width:919px){.gs-inspector{width:100%!important;height:34dvh!important;max-height:34dvh}.gs-canvas{min-height:0!important}}
+`; /* no external @import — the artifact sandbox only allows cdnjs.cloudflare.com,
    and fonts.googleapis.com is blocked there, which was breaking the whole preview.
    System font stacks below give a close, dependable equivalent on every platform. */
 const FD = "Georgia, 'Noto Serif KR', 'Nanum Myeongjo', 'Noto Serif TC', 'PMingLiU', serif";
@@ -175,7 +190,7 @@ const S = {
   save: ["Save", "저장", "儲存"],
   exitSave: ["Exit & save", "종료 및 저장", "結束並儲存"],
   cancel: ["Cancel", "취소", "取消"],
-  eventAdderTitle: ["Add an event", "사건 추가", "新增事件"],
+  eventAdderTitle: ["2 · Event in a year", "2 · 연도별 사건 추가", "2 · 新增年度事件"],
   saveDlgTitle: ["Save this case", "가계도 저장", "儲存個案"],
   saveNameLabel: ["Case name", "가계도 이름", "個案名稱"],
   saveNamePh: ["e.g. Kim family — 2026", "예: 김OO 가족 — 2026", "例：金家 — 2026"],
@@ -552,12 +567,22 @@ const S = {
   evOther: ["Other", "기타", "其他"],
   childLayer: ["Child", "자녀", "子女"],
   otherLayer: ["Other people · context", "기타 인물·맥락", "其他人物・脈絡"],
-  transitionTitle: ["Family transitions", "가족 전환기", "家庭轉換期"],
+  transitionTitle: ["1 · Period of change (optional)", "1 · 변화가 이어진 기간 (선택)", "1 · 變化持續的期間（選填）"],
+  transitionHelp: [
+    "Use this only when a change affected family relationships over time. It groups related events; it is not another copy of an event. For a one-day event, use Add an event below.",
+    "변화의 영향이 여러 해 이어졌을 때만 기간을 만드세요. 관련 사건을 묶는 기능이며, 같은 사건을 한 번 더 적는 칸이 아닙니다. 한 번 일어난 일은 아래 ‘사건 추가’에만 적으세요.",
+    "只有變化持續影響家庭關係時才建立期間。它用來彙整相關事件，不是重複輸入同一事件；單次事件請只填在下方的「新增事件」。",
+  ],
+  eventHelp: [
+    "Record what happened in a specific year once. If it belongs to a longer period of change, choose that period in the last field. Births, deaths, marriages and divorces already appear automatically when their years are entered on the genogram.",
+    "특정 연도에 일어난 일은 여기 한 번만 기록하세요. 오래 이어진 변화와 관련되면 마지막 칸에서 그 기간을 선택합니다. 출생·사망·결혼·이혼은 가계도에 연도를 입력하면 자동으로 표시됩니다.",
+    "特定年份發生的事只需在此記錄一次；若屬於較長的變化期間，請在最後一欄選擇該期間。出生、死亡、結婚與離婚在家系圖輸入年份後會自動顯示。",
+  ],
   transitionName: ["Transition name", "전환기 이름", "轉換期名稱"],
   transitionFrom: ["From", "시작", "起"],
   transitionTo: ["To", "끝", "迄"],
-  transitionLink: ["Transition group", "전환기 묶음", "轉換期群組"],
-  noTransition: ["No group", "묶지 않음", "不分組"],
+  transitionLink: ["Related period of change", "관련된 변화 기간", "相關的變化期間"],
+  noTransition: ["No related period", "관련 기간 없음", "無相關期間"],
   add: ["Add", "추가", "新增"],
   evHint: [
     "Choose a person and an end year to draw a duration bar beside their life-line.",
@@ -3807,7 +3832,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
       const r = svgRef.current?.getBoundingClientRect(); if (!r) return;
       const { dist: d0, k0, wx, wy } = pinch.current;
-      const k = Math.min(2.2, Math.max(0.25, k0 * (dist / Math.max(24, d0))));
+      const k = Math.min(2.2, Math.max(0.25, k0 * Math.pow(dist / Math.max(24, d0), 0.55)));
       /* 매 순간의 실제 손가락 중점을 쓴다 — 고정된 시작점이 아니라. */
       const curMx = (a.x + b.x) / 2, curMy = (a.y + b.y) / 2;
       const sx = curMx - r.left, sy = curMy - r.top;
@@ -4000,12 +4025,38 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
     });
   };
 
-  const onWheel = (e) => {
-    const k = Math.min(2.2, Math.max(0.25, view.k * (e.deltaY > 0 ? 0.92 : 1.08)));
-    const r = svgRef.current.getBoundingClientRect();
-    const mx = e.clientX - r.left, my = e.clientY - r.top;
-    setView((v) => ({ k, x: mx - (mx - v.x) * (k / v.k), y: my - (my - v.y) * (k / v.k) }));
-  };
+  // Native non-passive listeners keep canvas gestures from zooming the whole page.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    let gestureScale = null;
+    const zoomAt = (factor, clientX, clientY) => {
+      const r = svg.getBoundingClientRect();
+      const mx = Number.isFinite(clientX) ? clientX - r.left : r.width / 2;
+      const my = Number.isFinite(clientY) ? clientY - r.top : r.height / 2;
+      setView(v => {
+        const k = Math.min(2.2, Math.max(0.25, v.k * factor));
+        return { k, x: mx - (mx - v.x) * k / v.k, y: my - (my - v.y) * k / v.k };
+      });
+    };
+    const wheel = e => {
+      e.preventDefault();
+      if (gestureScale !== null || !e.deltaY) return;
+      const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? svg.clientHeight : 1);
+      zoomAt(Math.exp(-Math.max(-80, Math.min(80, delta)) * 0.0015), e.clientX, e.clientY);
+    };
+    const start = e => { e.preventDefault(); gestureScale = e.scale || 1; };
+    const change = e => {
+      e.preventDefault();
+      if (gestureScale === null || !(e.scale > 0)) return;
+      zoomAt(Math.pow(e.scale / gestureScale, 0.55), e.clientX, e.clientY);
+      gestureScale = e.scale;
+    };
+    const end = e => { e.preventDefault(); gestureScale = null; };
+    const listeners = { wheel, gesturestart: start, gesturechange: change, gestureend: end };
+    Object.entries(listeners).forEach(([type, fn]) => svg.addEventListener(type, fn, { passive: false }));
+    return () => Object.entries(listeners).forEach(([type, fn]) => svg.removeEventListener(type, fn));
+  }, []);
 
   const startHH = () => {
     setMode("household"); setSel(null);
@@ -4022,7 +4073,11 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
   const saveHH = (select = false) => { keepHH(hhDraftRef.current, select); setHhDraft(null); };
   const saveHHDraft = () => saveHH(false);
   const finishHH = () => { saveHH(true); setMode("select"); };
+  const templateBusy = useRef(false);
+  useEffect(() => { if (!doc.people.length) templateBusy.current = false; }, [doc.people.length]);
   const template = () => {
+    if (doc.people.length || templateBusy.current) return;
+    templateBusy.current = true;
     const pgf = makePerson({ gender: "male", x: -450, y: 0 }), pgm = makePerson({ gender: "female", x: -312, y: 0 });
     const mgf = makePerson({ gender: "male", x: 312, y: 0 }), mgm = makePerson({ gender: "female", x: 450, y: 0 });
     const u1 = { id: uid(), a: pgf.id, b: pgm.id, type: "married", mYear: "", eYear: "" };
@@ -4036,7 +4091,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
     nd = centerKids(nd, u1.id);   // 아버지를 할아버지·할머니 부부선 가운데로
     nd = centerKids(nd, u2.id);   // 어머니를 외할아버지·외할머니 부부선 가운데로
     nd = centerKids(nd, u3.id);   // 본인을 아버지·어머니 부부선 가운데로
-    setDoc((d) => ({ ...d, people: [...d.people, ...nd.people], unions: [...d.unions, u1, u2, u3] }));
+    setDoc((d) => d.people.length ? d : ({ ...d, people: nd.people, unions: [...d.unions, u1, u2, u3] }));
     setSel({ kind: "person", id: me.id }); fitView(nd.people);
   };
   useEffect(() => { if (templateRef) templateRef.current = template; });
@@ -4182,7 +4237,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
           {/* '기본 가계도'는 사례 시작할 때 한 번 쓰는 일이지만, 남성/여성
               바로 다음이 손에 익어 찾기 쉽다는 요청으로 여기 둔다. */}
           {templateRef && (
-            <button type="button" onClick={() => templateRef.current?.()}
+            <button type="button" disabled={doc.people.length > 0} title={doc.people.length ? tr(["Available on an empty genogram", "빈 가계도에서 사용할 수 있습니다", "僅適用於空白家系圖"], li) : t("template")} onClick={() => templateRef.current?.()}
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 13px", flexShrink: 0,
                 borderRadius: 12, cursor: "pointer", whiteSpace: "nowrap", fontSize: 14, fontWeight: 600,
                 border: `1px solid ${T.rule}`, background: "#fff", color: T.ink2 }}>
@@ -4466,7 +4521,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
           <svg ref={svgRef} style={{ width: "100%", height: "100%", background: T.canvas, touchAction: "none", display: "block" }}
             onPointerDownCapture={onPointerDownCapture} onPointerMoveCapture={onPointerMoveCapture}
             onPointerUpCapture={onPointerUpCapture} onPointerCancelCapture={onPointerUpCapture}
-            onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onLostPointerCapture={onUp} onWheel={onWheel}>
+            onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onLostPointerCapture={onUp}>
             {svgDefs()}
             <rect x={0} y={0} width="100%" height="100%" fill="url(#grid)" onPointerDown={onBgDown} />
             <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
@@ -4497,19 +4552,19 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
             )}
           </svg>
 
-          <div className="gs-zoom" style={selPerson && !selPerson.preg ? { opacity: 0.15, pointerEvents: "none", transition: "opacity .15s" } : { transition: "opacity .15s" }}>          <Group>
+          <div className="gs-zoom">          <Group>
             <GBtn first onClick={() => (tlg ? fitTLG() : fitView())} title={t("fit")}>
               <svg width={15} height={15} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M2 6V2.4h3.6M14 6V2.4h-3.6M2 10v3.6h3.6M14 10v3.6h-3.6" />
               </svg>
             </GBtn>
-            <GBtn onClick={() => zoomBy(1 / 1.15)} disabled={view.k <= 0.26} title={t("zoomOut")}>−</GBtn>
+            <GBtn onClick={() => zoomBy(1 / 1.1)} disabled={view.k <= 0.26} title={t("zoomOut")}>−</GBtn>
             <span style={{ display: "flex", alignItems: "center", justifyContent: "center", minWidth: 46,
               fontSize: 11, color: T.mute, fontFamily: FM, borderLeft: `1px solid rgba(22,32,42,.08)`,
               borderRight: `1px solid rgba(22,32,42,.08)`, alignSelf: "stretch" }}>
               {Math.round(view.k * 100)}%
             </span>
-            <GBtn onClick={() => zoomBy(1.15)} disabled={view.k >= 2.19} title={t("zoomIn")}>＋</GBtn>
+            <GBtn onClick={() => zoomBy(1.1)} disabled={view.k >= 2.19} title={t("zoomIn")}>＋</GBtn>
           </Group></div>
           <div className="gs-canvas-status">{doc.people.length}{tr([' people','명',' 人'],li)} · {doc.bonds.length}{tr([' relationships','개 관계',' 段關係'],li)}</div>
           {connectNote&&<div className="gs-connect-hint"><span>{tr(['Click a person, relationship line or a point on the canvas.','연결할 인물·관계선 또는 그림의 지점을 누르세요.','點選要連接的人物、關係線或畫布位置。'],li)}</span><button onClick={()=>setConnectNote(null)}>{t('cancel')}</button></div>}
@@ -5329,17 +5384,16 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
               {tab === "time" && (
                 <div className="flex flex-col" style={{ gap: 12 }}>
                   <SectionTitle right={<Btn active={showTL} onClick={() => setShowTL((v) => !v)}>{t("timelineTog")}</Btn>}>{t("tlTitle")}</SectionTitle>
-                  {/* 무엇을 어떻게 적으라는 안내(tlHint)보다 앞서, 왜 전환기를
-                     기록하는지부터 짚어 둔다 — 이 문단이 없으면 전환기가
-                     그저 사건 하나 적는 칸처럼 보인다. */}
-                  <div style={{ padding: 11, background: T.goldSoft, borderRadius: 6, fontSize: 11.5, lineHeight: 1.5, color: T.ink2 }}>{t("transitionWhy")}</div>
-                  <div style={{ fontSize: 11.5, color: T.mute, lineHeight: 1.45 }}>{t("tlHint")}</div>
-                  <div style={{ padding: 11, background: "#F4F1F8", borderRadius: 6, fontSize: 11.5, lineHeight: 1.48, color: T.ink2 }}>{t("tlgHint")}</div>
+                  <div style={{ padding: 11, background: "#F4F7FA", borderRadius: 7, fontSize: 11.5, lineHeight: 1.55, color: T.ink2 }}>
+                    {tr(["Record each event once. Add a period of change only when its effects continued, then link related events to it.",
+                      "사건은 한 번만 기록하세요. 영향이 오래 이어졌을 때만 ‘변화 기간’을 만들고, 관련 사건을 그 기간에 연결합니다.",
+                      "每件事只記錄一次。只有影響持續時才建立「變化期間」，再把相關事件連結至該期間。"], li)}
+                  </div>
                   <TransitionAdder li={li} transitions={doc.transitions || []}
                     onAdd={(g) => { setDoc((d) => ({ ...d, transitions: [...(d.transitions || []), { ...g, id: uid() }] })); setShowTL(true); }}
                     onEdit={(id, patch) => setDoc((d) => ({ ...d, transitions: (d.transitions || []).map((g) => (g.id === id ? { ...g, ...patch } : g)) }))}
                     onDelete={(id) => setDoc((d) => ({ ...d, transitions: (d.transitions || []).filter((g) => g.id !== id), events: (d.events || []).map((e) => e.transitionId === id ? { ...e, transitionId: null } : e) }))} />
-                  <EventAdder li={li} people={doc.people} transitions={doc.transitions || []} onAdd={(ev) => setDoc((d) => ({ ...d, events: [...d.events, { ...ev, id: uid() }] }))} />
+                  <EventAdder li={li} people={doc.people} transitions={doc.transitions || []} onAdd={(ev) => { setDoc((d) => ({ ...d, events: [...d.events, { ...ev, id: uid() }] })); setShowTL(true); }} />
                   <div>
                     {(doc.events || []).slice().sort((a, b2) => a.year - b2.year).map((e) => {
                       const scopeLabel = e.scope === "parents" ? t("evParents") : e.scope === "other" ? t("evOther") : e.personId ? nameOf(e.personId) : t("evFamily");
@@ -5444,6 +5498,11 @@ async function saveAs(blob, suggestedName, mimeType, extLabel) {
   }
   download(blob, suggestedName);
   return "downloaded";
+}
+async function writeCaseHandle(handle,blob){
+  const writable=await handle.createWritable();
+  try {await writable.write(blob);await writable.close();}
+  catch(e){try{await writable.abort?.();}catch{}throw e;}
 }
 function svgToCanvas(str, w, h, scale, cb) {
   const img = new Image();
@@ -6543,9 +6602,16 @@ const balancedNoteLines = text => String(text||'').replace(/\u200B/g,'').split('
   out.push(words.slice(start).join(' '));
   return out.some(s=>s.length>limit+4)?initial:out;
 });
+let noteMeasureCanvas=null;
 function noteBounds(n) {
   const size=textSize(n.size,12), lines=balancedNoteLines(n.text);
-  const widthOf=line=>(TK_RE.test(line)?graphemes(line):[...line]).reduce((sum,ch)=>sum+(/[\uac00-\ud7a3\u3400-\u9fff]/.test(ch)?1:/[\u1780-\u17FF]/.test(ch)?.85:/[\u0E00-\u0E7F]/.test(ch)?.65:.62)*size,0);
+  /* 글자 수로 폭을 추정하면 영어의 가는 글자(i, l 등)가 많을 때 오른쪽에
+     큰 빈칸이 남는다. 실제 화면 글꼴로 측정해 좌우 안쪽 여백을 같게 한다. */
+  const canvas=typeof document!=='undefined'?(noteMeasureCanvas ||=document.createElement('canvas')):null;
+  const ctx=canvas?.getContext('2d');
+  if(ctx)ctx.font=`500 ${size}px ${FB}`;
+  const widthOf=line=>ctx?ctx.measureText(line).width:
+    (TK_RE.test(line)?graphemes(line):[...line]).reduce((sum,ch)=>sum+(/[\uac00-\ud7a3\u3400-\u9fff]/.test(ch)?1:/[\u1780-\u17FF]/.test(ch)?.85:/[\u0E00-\u0E7F]/.test(ch)?.65:.62)*size,0);
   const width=Math.max(64,...lines.map(widthOf))+24;
   const steps=lines.map(line=>TK_RE.test(line)?1.75:1.4);          // 태국어·크메르어 줄은 부호가 쌓이므로 줄 간격을 넓힌다
   const height=(steps.length?steps.reduce((a,b)=>a+b,0):1.4)*size+18;
@@ -7353,6 +7419,7 @@ function AppInner() {
   const panelRef = useRef(null);   // 헤더의 "저장한 가계도" 단추 → Editor 패널을 그 탭으로 연다
   const [toast, setToast] = useState("");
   const fileRef = useRef(null);
+  const currentTargetRef = useRef(null); // file handle, browser case, or read-only imported file
   const t = (k) => tr(S[k], li);
   const flash = (m) => { setToast(m); setTimeout(() => setToast(""), 2400); };
 
@@ -7384,6 +7451,7 @@ function AppInner() {
      남겨 두고, 홈 화면에서는 지금 내용과 이 스냅샷을 비교한다. */
   const cleanRef = useRef("");
   const resetDoc = useCallback((d) => {
+    currentTargetRef.current=null;
     setDocEpoch(v=>v+1);
     lastTag.current = { tag: null, at: 0 };
     cleanRef.current = JSON.stringify(d);
@@ -7492,23 +7560,62 @@ function AppInner() {
     if (dest === "file") {
       const withTitle = { ...doc, title };
       const blob = new Blob([JSON.stringify(withTitle, null, 2)], { type: "application/json" });
-      const result=await saveAs(blob,`${title || 'genogram'}.genogram.json`,"application/json","Genogram data (JSON)");
-      if(result!=='cancelled'){patchDoc(withTitle);flash(t('saved'));}
-      return result;
+      const filename=`${title || 'genogram'}.genogram.json`;
+      try{
+        if(typeof window.showSaveFilePicker==='function'){
+          const handle=await window.showSaveFilePicker({suggestedName:filename,
+            types:[{description:'Genogram data (JSON)',accept:{'application/json':['.json']}}]});
+          await writeCaseHandle(handle,blob);
+          currentTargetRef.current={kind:'file',handle};patchDoc(withTitle);flash(t('saved'));return 'saved';
+        }
+        download(blob,filename);
+        currentTargetRef.current={kind:'unwritable-file',name:filename};patchDoc(withTitle);
+        flash(tr(['A copy was downloaded; the original file was not changed.','복사본을 다운로드했습니다. 원본 파일은 바뀌지 않았습니다.','已下載副本；原始檔案未變更。'],li));
+        return 'downloaded';
+      }catch(e){
+        if(e?.name==='AbortError')return 'cancelled';
+        flash(tr(['Could not save the file.','파일을 저장하지 못했습니다.','無法儲存檔案。'],li));return 'failed';
+      }
     }
     if (!storage) return saveCase(name, "file",asNew);
-    const id = asNew ? uid() : (doc.id || uid());
+    const id = !asNew && currentTargetRef.current?.kind==='browser' ? currentTargetRef.current.id : uid();
     const next = { ...doc, id, title, savedAt: new Date().toISOString() };
     try {
       await storage.set(`gs:case:${id}`, JSON.stringify(next));
       const idx = [{ id, title: next.title, savedAt: next.savedAt }, ...cases.filter((c) => c.id !== id)];
       await storage.set("gs:index", JSON.stringify(idx));
-      setCases(idx);patchDoc(next);flash(t("saved"));return "saved";
+      setCases(idx);currentTargetRef.current={kind:'browser',id};patchDoc(next);flash(t("saved"));return "saved";
     } catch { flash("!"); return "failed"; }
   };
-  const requestSave = (asNew=false, exit=false) => {
+  const requestSave = async (asNew=false, exit=false) => {
     setFileMenuOpen(false);
+    if(!asNew && currentTargetRef.current){
+      const target=currentTargetRef.current;
+      if(target.kind==='unwritable-file'){
+        window.alert(tr([
+          'This browser cannot overwrite the opened file. The original will not change. Choose browser storage or save a separate file.',
+          '이 브라우저에서는 불러온 파일을 덮어쓸 수 없습니다. 원본 파일은 바뀌지 않습니다. 브라우저에 저장하거나 새 파일로 저장해 주세요.',
+          '此瀏覽器無法覆寫開啟的檔案。原始檔案不會變更。請儲存至瀏覽器或另存新檔。'],li));
+        setSaveAsMode(false);setExitAfterSave(exit);setSaveDlg(true);return 'dialog';
+      }
+      const label=target.kind==='file' ? (target.handle.name||doc.title) : doc.title;
+      if(!window.confirm(tr([
+        `Overwrite “${label}”? Its previously saved contents will be replaced.`,
+        `“${label}”의 기존 저장 내용이 새 내용으로 바뀝니다. 덮어쓰시겠습니까?`,
+        `要覆寫「${label}」嗎？先前儲存的內容將被新內容取代。`],li)))return 'cancelled';
+      let result='failed';
+      if(target.kind==='file'){
+        try{
+          const blob=new Blob([JSON.stringify(doc,null,2)],{type:'application/json'});
+          await writeCaseHandle(target.handle,blob);
+          patchDoc(doc);flash(t('saved'));result='saved';
+        }catch{flash(tr(['Could not overwrite the file.','파일을 덮어쓰지 못했습니다.','無法覆寫檔案。'],li));}
+      }else result=await saveCase(doc.title,'device');
+      if(exit&&result==='saved')setScreen('home');
+      return result;
+    }
     setSaveAsMode(asNew);setExitAfterSave(exit);setSaveDlg(true);
+    return 'dialog';
   };
   const exitCase = async () => {
     setFileMenuOpen(false);
@@ -7538,7 +7645,7 @@ function AppInner() {
   };
   const loadCase = async (id) => {
     await keepUnsaved();
-    try { const r = await storage.get(`gs:case:${id}`); if (r?.value) { resetDoc(withDefaults(JSON.parse(r.value)));flash(t("open")); } } catch {}
+    try { const r = await storage.get(`gs:case:${id}`); if (r?.value) { resetDoc(withDefaults(JSON.parse(r.value)));currentTargetRef.current={kind:'browser',id};flash(t("open")); } } catch {}
   };
   const deleteCase = async (id) => {
     try {
@@ -7554,13 +7661,24 @@ function AppInner() {
   const importJSON = (e) => {
     const f = e.target.files?.[0]; if (!f) return;
     const fr = new FileReader();
-    fr.onload = async () => { try { const d = withDefaults(JSON.parse(fr.result)); await keepUnsaved(); resetDoc(d); setScreen("draw"); flash(t("open")); } catch { flash("!"); } };
+    fr.onload = async () => { try { const d = withDefaults(JSON.parse(fr.result)); await keepUnsaved(); resetDoc(d);currentTargetRef.current={kind:'unwritable-file',name:f.name}; setScreen("draw"); flash(t("open")); } catch { flash("!"); } };
     fr.readAsText(f); e.target.value = "";
+  };
+  const openCaseFile=async()=>{
+    if(typeof window.showOpenFilePicker!=='function'){fileRef.current?.click();return;}
+    try{
+      const [handle]=await window.showOpenFilePicker({multiple:false,
+        types:[{description:'Genogram data (JSON)',accept:{'application/json':['.json']}}]});
+      if(!handle)return;
+      const file=await handle.getFile(),loaded=withDefaults(JSON.parse(await file.text()));
+      await keepUnsaved();resetDoc(loaded);currentTargetRef.current={kind:'file',handle};
+      setScreen('draw');flash(t('open'));
+    }catch(e){if(e?.name!=='AbortError')flash(tr(['Could not open the file.','파일을 열지 못했습니다.','無法開啟檔案。'],li));}
   };
 
   return (
     <LangCtx.Provider value={li}>
-      <div className="gs-app" style={{ display: "flex", flexDirection: "column", height: "100vh", background: T.paper, color: T.ink, fontFamily: FB, overflow: "hidden" }}>
+      <div className="gs-app" data-screen={screen} style={{ display: "flex", flexDirection: "column", height: "100vh", background: T.paper, color: T.ink, fontFamily: FB, overflow: "hidden" }}>
         <style>{FONTS}</style>
 
         {screen !== "home" && (
@@ -7666,7 +7784,7 @@ function AppInner() {
         <div className="gs-workspace-main">
           {screen === "home" && <Home li={li} setLi={setLi} go={setScreen}
             onNew={async () => { await keepUnsaved(); resetDoc(emptyDoc()); setScreen("draw"); }}
-            onOpenFile={() => fileRef.current?.click()} fileRef={fileRef} onImport={importJSON} cases={cases} loadCase={loadCase} storageOK={storageOK}
+            onOpenFile={openCaseFile} fileRef={fileRef} onImport={importJSON} cases={cases} loadCase={loadCase} storageOK={storageOK}
             /* 새로고침 없이 '홈'으로 돌아온 경우, doc은 이미 이번 세션에서
                그리던 내용을 그대로 들고 있다. 그때는 storage에서 다시
                읽어 온 draft(재시작 이후용)가 아니라, 지금 메모리에 있는
@@ -7678,7 +7796,7 @@ function AppInner() {
             resumeDraft={doc.people.length ? () => setScreen("draw") : resumeDraft}
             dropDraft={doc.people.length ? () => { resetDoc(emptyDoc()); storage?.delete("gs:draft").catch(() => {}); } : dropDraft}
             autosaveOn={autosaveOn} setAutosave={setAutosave} deleteAllOnDevice={deleteAllOnDevice} />}
-          {screen === "draw" && <Editor key={docEpoch} doc={doc} setDoc={setDoc} li={li} cases={cases} storageOK={storageOK} openSave={() => requestSave()} onOpenFile={() => fileRef.current?.click()} loadCase={loadCase} deleteCase={deleteCase} flash={flash} templateRef={templateRef} panelRef={panelRef} noteBridge={noteBridge} toolHidden={toolHidden}
+          {screen === "draw" && <Editor key={docEpoch} doc={doc} setDoc={setDoc} li={li} cases={cases} storageOK={storageOK} openSave={() => requestSave()} onOpenFile={openCaseFile} loadCase={loadCase} deleteCase={deleteCase} flash={flash} templateRef={templateRef} panelRef={panelRef} noteBridge={noteBridge} toolHidden={toolHidden}
             undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />}
           {screen === "export" && <ExportScreen doc={doc} setDoc={setDoc} li={li} exportJSON={exportJSON} flash={flash} onBackToDraw={() => setScreen("draw")} />}
             {screen === "analysis" && <AnalysisScreen doc={doc} setDoc={setDoc} li={li} onBackToDraw={() => setScreen("draw")} />}
@@ -8186,7 +8304,7 @@ function LangTabs({ tab, onTab, li }) {
 function InterpreterWindow({ li, open, onClose, docked, onToggleDock, onTab }) {
   const floating = useFloatingPanel(LANG_PANEL_KEY, dockDefaultRect("language"));
   const [full, setFull] = useState(false), [fold, setFold] = useState(false), [fs, setFs] = useState(3);
-  const [cfg, setCfg] = useState(() => { try { return { speed: 1, autoRead: true, review: true, ...JSON.parse(localStorage.getItem("gs:interpreter-settings") || "{}") }; } catch { return { speed: 1, autoRead: true, review: true }; } });
+  const [cfg, setCfg] = useState(() => { try { return { speed: 1, autoRead: true, review: false, ...JSON.parse(localStorage.getItem("gs:interpreter-settings") || "{}") }; } catch { return { speed: 1, autoRead: true, review: false }; } });
   const setC = (patch) => setCfg((c) => { const next = { ...c, ...patch }; try { localStorage.setItem("gs:interpreter-settings", JSON.stringify(next)); } catch {} return next; });
   useEffect(() => { if (open) warmUp(["gpt-translate", "whisper", "tts"]); }, [open]);
   return <div className={`gs-interpreter-window${docked ? " gs-docked" : ""}`} onPointerDownCapture={floating.focus} data-noprint data-notrans style={{ position: "fixed", ...floating.style, ...(full ? { left: 0, top: 0, width: "100vw", height: "100dvh" } : {}), ...(fold ? { height: "auto" } : {}), display: open ? "flex" : "none", flexDirection: "column", background: "white", border: `1px solid ${T.rule}`, borderRadius: 10, boxShadow: "0 4px 18px #16202a38", ...(docked && !full ? dockedWindowStyle : {}) }}>
@@ -8607,7 +8725,7 @@ function TranslateDock({ li, open, onClose, noteBridge, flash, docked, onToggleD
    예전에는 화면 전체를 덮는 창이었다. 이제는 번역 띠 안에서 보이고 가릴 수 있어서, 통역하면서
    가계도를 그리고 기록할 수 있다. 상담사와 내담자가 각자 말하면 상대의 언어로 번역해 읽어 준다. */
 function InterpreterSection({ li, px, cfg, setC, open }) {
-  const LANGS = LANG_LABEL.map((l, i) => ({ label: l, code: LANG_CODE[i], idx: i }));
+  const speechLanguages = LANG_LABEL.map((l, i) => ({ label: l, code: LANG_CODE[i], idx: i }));
 
   /* 앱 언어 번호(0 영어·1 한국어·2 중국어)와 통역 언어 목록 번호(0 한국어·1 중국어·2 영어)는 순서가 다르다. */
   const home = { en: 2, ko: 0, zh: 1, th: 3, km: 4, fr: 5 }[LANGS[li]?.id] ?? 0;   // 화면 언어 → 통역창 언어 번호
@@ -8626,13 +8744,14 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
   const [status, setStatus] = useState("");
   const [vSpeed] = useVoiceSpeed();                    // 읽기 속도는 번역창과 함께 쓴다
   const voice = { ...cfg, speed: vSpeed };
-  const [inputHeight, setInputHeight] = useState(190);
+  const [inputHeight, setInputHeight] = useState(76);
   const keyboard = useMemoKeyboard();
   const playback = useSpeaker();
   const t = (en, ko, zh) => tr([en, ko, zh], li);
   useEffect(() => {
     alive.current = open;
     if (!open) {
+      Speaker.stop();
       operation.current++; starting.current = false; setBusy(false); setRecording(null);
       const mr = mediaRef.current;
       if (mr) { mr.onstop = null; if (mr.state !== "inactive") mr.stop(); mr.stream.getTracks().forEach((tk) => tk.stop()); mediaRef.current = null; }
@@ -8640,7 +8759,7 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
     return () => { alive.current = false; };
   }, [open]);
   const chunksRef = useRef([]);
-  useEffect(() => () => { const mr = mediaRef.current; if (mr) { mr.onstop = null; if (mr.state !== "inactive") mr.stop(); mr.stream.getTracks().forEach((tk) => tk.stop()); } }, []);          // 통역 부분을 가리면 읽던 것도 멈춘다
+  useEffect(() => () => { Speaker.stop(); const mr = mediaRef.current; if (mr) { mr.onstop = null; if (mr.state !== "inactive") mr.stop(); mr.stream.getTracks().forEach((tk) => tk.stop()); } }, []);          // 통역 부분을 가리면 읽던 것도 멈춘다
 
   /* 말한 것(또는 친 것)을 문장 단위로 번역해 보여 주고 읽는다. 긴 말도 첫 문장이 먼저 나오고 먼저 읽힌다. */
   const deliver = async (who, text, id = operation.current) => {
@@ -8669,11 +8788,13 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
     starting.current = true;
     const id = ++operation.current;
     setStatus(t("Opening microphone…", "마이크 연결 중…", "正在開啟麥克風…"));
+    Speaker.stop();
     Speaker.unlock();
     let stream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
       if (!alive.current || id !== operation.current) { stream.getTracks().forEach((tk) => tk.stop()); return; }
+      if (who === "me") { setMyText(""); setMyTrans(""); } else { setTheirText(""); setTheirTrans(""); }
       const mr = new MediaRecorder(stream);
       const chunks = [];
       mr.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
@@ -8685,9 +8806,9 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
           const heard = await whisperSTT(new Blob(chunks, { type: mr.mimeType || "audio/webm" }), LANG_CODE[who === "me" ? myLang : theirLang]);
           if (!alive.current || id !== operation.current) return;
           if (who === "me") setMyText(heard); else setTheirText(heard);
-          if (!cfg.review) await deliver(who, heard, id);
-          setStatus(cfg.review ? t("Review the recognized text, then translate.", "인식된 말을 확인·수정한 뒤 번역해 주세요.", "確認並修改辨識文字後再翻譯。") : "");
-        } catch (e) { if (alive.current) setStatus(t("Speech processing failed. Please retry.", "음성 처리에 실패했습니다. 다시 시도해 주세요.", "語音處理失敗，請重試。")); }
+          if (!cfg.review && heard.trim()) await deliver(who, heard, id);
+          if (cfg.review) setStatus(t("Review the recognized text, then translate.", "인식된 말을 확인·수정한 뒤 번역해 주세요.", "確認並修改辨識文字後再翻譯。"));
+        } catch (e) { if (alive.current && id === operation.current) setStatus(t("Speech processing failed. Please retry.", "음성 처리에 실패했습니다. 다시 시도해 주세요.", "語音處理失敗，請重試。")); }
         finally { if (alive.current && id === operation.current) setBusy(false); }
       };
       mr.start(); mediaRef.current = mr; setRecording(who);
@@ -8699,14 +8820,14 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
   };
   const stopRec = () => {
     const mr = mediaRef.current;
-    if (mr && mr.state !== "inactive") mr.stop();
+    if (mr && mr.state !== "inactive") { setBusy(true); mr.stop(); }
     mediaRef.current = null; setRecording(null);
   };
   const sendText = async (who) => {
     const text = who === "me" ? myText : theirText;
     if (!text.trim() || busy || recording || starting.current) return;
     const id = ++operation.current;
-    Speaker.unlock(); setBusy(true);
+    Speaker.stop(); Speaker.unlock(); setBusy(true);
     try { await deliver(who, text, id); }
     catch { if (alive.current) setStatus(t("Translation failed. Please retry.", "번역에 실패했습니다. 다시 시도해 주세요.", "翻譯失敗，請重試。")); }
     finally { if (alive.current && id === operation.current) setBusy(false); }
@@ -8719,7 +8840,7 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
     return (
       <button type="button"
         onClick={() => isRec ? stopRec() : startRec(who)}
-        disabled={busy || (recording && !isRec)} aria-label={isRec ? t("Stop recording", "녹음 끝내기", "結束錄音") : t("Record", "녹음 시작", "開始錄音")}
+        disabled={busy || starting.current || (recording && !isRec)} aria-label={isRec ? t("Stop recording", "녹음 끝내기", "結束錄音") : t("Record", "녹음 시작", "開始錄音")}
         style={{ width: 32, height: 32, borderRadius: 16, border: "none", cursor: "pointer", flexShrink: 0,
           background: isRec ? "#C0392B" : T.pine, color: "#fff", fontSize: 14,
           boxShadow: isRec ? "0 0 0 6px rgba(192,57,43,.25)" : "0 4px 12px rgba(22,32,42,.2)",
@@ -8731,51 +8852,66 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
 
   const renderSide = ({ who, name, lang, setLang, spoken, translated, onSend }) => (
     <div className="gs-interp-side" style={{ flex: "1 1 280px", display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontFamily: FB, fontWeight: 700, fontSize: 11, color: T.ink }}>{name}</span>
-        <select disabled={busy || !!recording} value={lang} onChange={(e) => setLang(+e.target.value)}
-          style={{ flex: 1, border: `1px solid ${T.rule}`, borderRadius: 6, padding: "1px 4px", fontSize: 10.5, fontFamily: FB, color: T.ink, background: "#fff" }}>
-          {LANGS.map((l) => <option key={l.idx} value={l.idx}>{l.label}</option>)}
-        </select>
-      </div>
+      <div style={{ fontWeight: 700, fontSize: 12 }}>{name}</div>
       <div style={{ display: "flex", flex: "1 0 auto", gap: 8, alignItems: "stretch" }}>
         <textarea value={spoken}
           onChange={(e) => who === "me" ? setMyText(e.target.value) : setTheirText(e.target.value)}
           onKeyDown={(e) => keyboard.onKeyDown(e, onSend, who === "me" ? setMyText : setTheirText)} onKeyUp={keyboard.onKeyUp} onBlur={keyboard.onBlur}
           placeholder={tr(["Recognized speech / type here · Enter: translate · Space + Enter: new line", "인식된 말 확인·직접 입력 · Enter: 번역 · 스페이스+Enter: 줄바꿈", "辨識文字／直接輸入 · Enter翻譯 · 空白鍵+Enter換行"], li)}
-          style={{ flex: 1, minWidth: 0, boxSizing: "border-box", border: `1px solid ${T.rule}`, borderRadius: 7, padding: "3px 7px", fontSize: px, lineHeight: 1.5, fontFamily: FB, resize: "vertical", minHeight: inputHeight, height: "100%", outline: "none" }} />
-        {renderMic(who)}
+          style={{ flex: 1, minWidth: 0, boxSizing: "border-box", border: `1px solid ${T.rule}`, borderRadius: 7, padding: "3px 7px", fontSize: px, lineHeight: 1.5, fontFamily: FB, resize: "vertical", minHeight: 60, height: inputHeight, outline: "none" }} />
       </div>
       <div role="separator" aria-label={t("Resize speech input", "인식된 말 영역 크기 조절", "調整辨識文字區域")} aria-orientation="horizontal" tabIndex={0}
-        onKeyDown={(e) => { if (e.key === "ArrowUp" || e.key === "ArrowDown") { e.preventDefault(); setInputHeight((h) => Math.max(140, Math.min(650, h + (e.key === "ArrowDown" ? 20 : -20)))); } }}
-        onPointerDown={(e) => { e.preventDefault(); const target = e.currentTarget, y = e.clientY, h = inputHeight; target.setPointerCapture(e.pointerId); const move = (ev) => setInputHeight(Math.max(140, Math.min(650, h + ev.clientY - y))); const end = () => { target.removeEventListener("pointermove", move); target.removeEventListener("pointerup", end); target.removeEventListener("pointercancel", end); }; target.addEventListener("pointermove", move); target.addEventListener("pointerup", end); target.addEventListener("pointercancel", end); }}
+        onKeyDown={(e) => { if (e.key === "ArrowUp" || e.key === "ArrowDown") { e.preventDefault(); setInputHeight((h) => Math.max(60, Math.min(360, h + (e.key === "ArrowDown" ? 20 : -20)))); } }}
+        onPointerDown={(e) => { e.preventDefault(); const target = e.currentTarget, y = e.clientY, h = inputHeight; target.setPointerCapture(e.pointerId); const move = (ev) => setInputHeight(Math.max(60, Math.min(360, h + ev.clientY - y))); const end = () => { target.removeEventListener("pointermove", move); target.removeEventListener("pointerup", end); target.removeEventListener("pointercancel", end); }; target.addEventListener("pointermove", move); target.addEventListener("pointerup", end); target.addEventListener("pointercancel", end); }}
         className="gs-grip" style={{ height: 12, flexShrink: 0, cursor: "row-resize", touchAction: "none", background: "transparent",
           display: "flex", alignItems: "center", justifyContent: "center" }}>
         <span aria-hidden="true" style={{ width: 34, height: 3, borderRadius: 2, background: T.faint, opacity: 0.55 }} />
       </div>
-      <button type="button" onClick={onSend} disabled={busy || !!recording || !spoken.trim()}
-        style={{ border: "none", borderRadius: 7, padding: "3px 0", cursor: "pointer", background: T.pine, color: "#fff", fontSize: 11, fontFamily: FB, fontWeight: 600, opacity: busy || !spoken.trim() ? 0.5 : 1 }}>
-        {cfg.autoRead ? t("Translate + read aloud →", "번역 + 읽어주기 →", "翻譯並朗讀 →") : t("Translate →", "번역 →", "翻譯 →")}
-      </button>
       {translated && (
-        <div className="gs-interp-out" style={{ flex: 1, minHeight: 100, whiteSpace: "pre-wrap", overflowY: "auto", background: T.sageSoft, borderRadius: 7, padding: "4px 8px", fontSize: px, fontFamily: FB, color: T.ink, lineHeight: 1.25 }}>
+        <div className="gs-interp-out" style={{ flex: "0 0 auto", minHeight: 0, maxHeight: 180, whiteSpace: "pre-wrap", overflowY: "auto", background: T.sageSoft, borderRadius: 7, padding: "4px 8px", fontSize: px, fontFamily: FB, color: T.ink, lineHeight: 1.25 }}>
           {translated}
-          <button type="button" onClick={() => speakTTS(translated, LANG_CODE[who === "me" ? theirLang : myLang], voice)}
-            style={{ float: "right", border: "none", background: "transparent", cursor: "pointer", fontSize: 12, color: T.pine, padding: "0 2px" }}>🔊</button>
+
         </div>
       )}
+    </div>
+  );
+
+
+  const renderControls = (who, name, lang, setLang, spoken, translated) => (
+    <div data-interp-controls={who} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 5 }}>
+      <strong style={{ fontSize: 12, minWidth: 45 }}>{name}</strong>
+      <select aria-label={name} value={lang} disabled={busy || !!recording || starting.current}
+        onChange={e => { Speaker.stop(); setLang(+e.target.value); setMyTrans(""); setTheirTrans(""); }}
+        style={{ flex: "1 1 80px", minWidth: 65, maxWidth: 135, padding: 4, fontSize: 12 }}>
+        {speechLanguages.map(l => <option key={l.idx} value={l.idx}>{l.label}</option>)}
+      </select>
+      {renderMic(who)}
+      <button type="button" onClick={() => sendText(who)} disabled={busy || !!recording || starting.current || !spoken.trim()}
+        style={{ padding: "6px 8px", border: "none", borderRadius: 6, background: T.pine, color: "white", fontSize: 12 }}>
+        {cfg.autoRead ? t("Translate + read", "번역·읽기", "翻譯朗讀") : t("Translate", "번역", "翻譯")}
+      </button>
+      <button type="button" aria-label={t("Replay translation", "번역 다시 듣기", "重播翻譯")}
+        disabled={busy || !!recording || starting.current || !translated}
+        onClick={() => speakTTS(translated, LANG_CODE[who === "me" ? theirLang : myLang], voice)}
+        style={{ padding: 6, border: `1px solid ${T.rule}`, borderRadius: 6, background: "white" }}>🔊</button>
     </div>
   );
 
   return (
     <div className="gs-interp" style={{ display: "flex", flexDirection: "column", width: "100%", minHeight: "100%", gap: 8 }}>
       <style>{`@keyframes pulse { 0%,100% { box-shadow: 0 0 0 4px rgba(192,57,43,.2); } 50% { box-shadow: 0 0 0 10px rgba(192,57,43,.05); } }`}</style>
+      <div className="gs-interp-controls" style={{ position: "sticky", top: 0, zIndex: 2, background: "#fff", padding: "6px 0", borderBottom: `1px solid ${T.rule}`, display: "flex", flexDirection: "column", gap: 6 }}>
+        {renderControls("me", tr(["Counsellor", "상담사", "諮商師"], li), myLang, setMyLang, myText, myTrans)}
+        {renderControls("them", tr(["Client", "내담자", "來訪者"], li), theirLang, setTheirLang, theirText, theirTrans)}
+        <label style={{ fontSize: 11 }}><input type="checkbox" checked={!cfg.review} disabled={busy || !!recording}
+          onChange={e => setC({ review: !e.target.checked })} />{t("Translate when recording stops", "마이크 종료 후 자동 통역", "結束錄音後自動翻譯")}</label>
       <div style={{ display: "flex", alignItems: "center", marginBottom: 3, gap: 6 }}>
         <span style={{ flex: 1, fontFamily: FD, fontSize: 11.5, fontWeight: 600, color: T.ink }}>🎤 {tr(["Interpreter", "통역", "口譯"], li)}</span>
         <span role="status" style={{ fontSize: 12, color: T.mute }}>{status || (playback.playing ? (playback.phase === "preparing" ? t("Preparing audio…", "음성 준비 중…", "準備語音中…") : t("Playing audio…", "재생 중…", "播放中…")) : "")}</span>
         {(playback.playing || playback.pending > 0) && (
           <button type="button" onClick={() => Speaker.stop()} style={{ border: `1px solid ${T.red}`, color: T.red, background: "#fff", borderRadius: 6, padding: "1px 8px", fontSize: 12, cursor: "pointer" }}>■ {t("Stop", "멈춤", "停止")}</button>
         )}
+      </div>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
         <VoiceStatus li={li} sp={playback} />
@@ -10086,6 +10222,7 @@ function TransitionAdder({ li, transitions, onAdd, onEdit, onDelete }) {
   return (
     <div className="flex flex-col" style={{ gap: 7, padding: 10, background: "#FDF8EC", border: `1px solid ${T.goldSoft}`, borderRadius: 7 }}>
       <div style={{ fontSize: 11.5, fontWeight: 700, color: T.gold, fontFamily: FB }}>{t("transitionTitle")}</div>
+      <div style={{ fontSize: 10.5, color: T.ink2, lineHeight: 1.5 }}>{t("transitionHelp")}</div>
       <div className="flex" style={{ gap: 6 }}>
         <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t("transitionName")} style={{ ...inputStyle, flex: 1 }} />
         <input value={fromYear} onChange={(e) => setFrom(e.target.value)} placeholder={t("transitionFrom")} style={{ ...inputStyle, width: 62, fontFamily: FM }} />
@@ -10102,7 +10239,7 @@ function TransitionAdder({ li, transitions, onAdd, onEdit, onDelete }) {
         </button>
         <Btn tone="warn" onClick={() => { if (editId === g.id) reset(); onDelete(g.id); }}>✕</Btn>
       </div>)}
-      <div style={{ fontSize: 10.5, color: T.mute, lineHeight: 1.55 }}>{tr(["Events linked to the same transition are encircled together across the history layers.", "같은 전환기에 연결한 사건은 여러 역사 층을 가로질러 하나의 원으로 묶입니다.", "連結至同一轉換期的事件，會跨越各歷史層級以同一橢圓圈組。"], li)}</div>
+      <div style={{ fontSize: 10.5, color: T.mute, lineHeight: 1.55 }}>{tr(["The dashed outline on the chart shows the period; linked events remain in their original years.", "도표의 점선 테두리는 변화 기간을, 연결한 사건은 각각의 연도를 나타냅니다.", "圖上的虛線外框表示變化期間；連結的事件仍保留在各自的年份。"], li)}</div>
     </div>
   );
 }
@@ -10114,6 +10251,7 @@ function EventAdder({ li, onAdd, people, transitions = [] }) {
   return (
     <div className="flex flex-col" style={{ gap: 6, padding: 10, background: "#F4F7FA", borderRadius: 6 }}>
       <div style={{ fontSize: 11.5, fontWeight: 700, color: T.ink2, fontFamily: FB }}>{t("eventAdderTitle")}</div>
+      <div style={{ fontSize: 10.5, color: T.ink2, lineHeight: 1.5 }}>{t("eventHelp")}</div>
       <div className="flex" style={{ gap: 6 }}>
         <input value={year} onChange={(e) => setYear(e.target.value)} placeholder={t("evYear")} style={{ ...inputStyle, width: 68, fontFamily: FM }} />
         <input value={endYear} onChange={(e) => setEndYear(e.target.value)} placeholder={t("evEnd")} style={{ ...inputStyle, width: 60, fontFamily: FM }} />
@@ -10146,6 +10284,7 @@ function EventAdder({ li, onAdd, people, transitions = [] }) {
           {people.filter((p) => !p.preg && p.gender !== "object").map((p) => <option key={p.id} value={p.id}>{personName(p, li)}</option>)}
         </select>}
       </div>
+      <div style={{ fontSize: 10.5, color: T.mute }}>{t("transitionLink")}</div>
       <div className="flex" style={{ gap: 6 }}>
         <select value={transitionId} onChange={(e) => setTransitionId(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
           <option value="">{t("noTransition")}</option>
