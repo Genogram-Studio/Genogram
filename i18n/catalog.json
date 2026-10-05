@@ -1,6 +1,6 @@
 {
  "generatedFrom": "src/App.jsx",
- "count": 1096,
+ "count": 1098,
  "items": [
   {
    "en": "Genogram Studio",
@@ -10379,6 +10379,26 @@
    "section": "StorageSettings",
    "words": 10,
    "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Update information",
+   "ko": "업데이트 안내",
+   "zh": "更新說明",
+   "section": "Home",
+   "words": 2,
+   "tier": 1,
+   "uses": 2,
+   "ambiguous": false
+  },
+  {
+   "en": "Your saved genograms are kept unchanged. The former Role field is now shown as Other, and a new Tasks · suggestions field is available for notes about practice or suggestions for the next meeting.",
+   "ko": "기존에 저장한 가계도 내용은 그대로 유지됩니다. 기존 ‘역할’ 내용은 ‘기타’에서 확인할 수 있고, 새로 추가된 ‘과제·제안’에는 다음 만남까지 해볼 일이나 상담사의 제안을 기록할 수 있습니다.",
+   "zh": "已儲存的家系圖內容會完整保留。原本的「角色」內容現在顯示在「其他」；新增的「練習・建議」可記錄下次會談前的練習與諮商師建議。",
+   "section": "Home",
+   "words": 34,
+   "tier": 2,
    "uses": 1,
    "ambiguous": false
   },
