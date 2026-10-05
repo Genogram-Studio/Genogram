@@ -31,7 +31,7 @@ const styles = `
 `;
 
 function StoryBlock({block}) {
-  return <section className="gs-report-block" style={block.fontPt?{fontSize:`${block.fontPt}pt`}:undefined}>{block.head&&<h3>{block.head}</h3>}<p>{block.body}</p></section>;
+  return <section className="gs-report-block" style={{...(block.fontPt?{fontSize:`${block.fontPt}pt`}:{}),...(block.tint?{background:block.tint,boxShadow:`inset 3px 0 ${block.accent}`,printColorAdjust:"exact"}:{})}}>{block.head&&<h3>{block.head}</h3>}<p>{block.body}</p></section>;
 }
 function Sheet({page, index, total, paper, fontPt, title}) {
   return <article className="gs-report-sheet" style={{width:`${paper.w}mm`,height:`${paper.h}mm`,fontSize:`${fontPt}pt`}}>

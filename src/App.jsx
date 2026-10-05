@@ -144,6 +144,30 @@ html[data-ui="km"] body :not(svg *){line-height:1.75!important}
 .gs-inspector button{min-height:27px!important;padding:5px 7px!important;font-size:11.5px!important}
 .gs-inspector .gs-help{font-size:12px!important;line-height:1.4!important}
 @media(max-width:919px){.gs-inspector{width:100%!important;height:34dvh!important;max-height:34dvh}.gs-canvas{min-height:0!important}}
+
+.gs-person-info-field select{width:60px!important;min-height:24px!important;padding:2px 5px!important;font-size:11px!important}
+.gs-person-flags .gs-flagrow{padding:2px 7px!important}
+.gs-person-flags .gs-check{min-height:21px!important;padding:1px 0!important}
+.gs-inspector [data-panel-tab="context"]{border-left:1px solid #AAB8C8!important;border-radius:0 8px 8px 0!important;margin-left:3px;padding-left:10px!important}
+.gs-editor-toolbar{background:linear-gradient(#F6F9FC,#EDF2F7)!important;border-bottom-color:#CAD6E3!important}
+.gs-editor-toolbar>.gs-group:nth-child(2){background:#EAF2FD!important;border-color:#BCD0EC!important}
+.gs-editor-toolbar>.gs-group:nth-child(2) button{background:transparent!important;color:#244E81!important}
+.gs-editor-toolbar>button[aria-expanded="false"]{background:#EAF2FD!important;border-color:#BCD0EC!important}
+.gs-editor-toolbar>.gs-group:nth-child(5){background:#E8F4F0!important;border-color:#B8D9CE!important}
+.gs-editor-toolbar>.gs-group:nth-child(5) button{background:transparent!important;color:#235F50!important}
+.gs-editor-toolbar>.gs-group:nth-child(6),.gs-editor-toolbar>.gs-group:nth-child(7){background:#F0EBF8!important;border-color:#D1C5E4!important}
+.gs-editor-toolbar>.gs-group:nth-child(6) button,.gs-editor-toolbar>.gs-group:nth-child(7) button{background:transparent!important;color:#65507D!important}
+.gs-interpreter-window{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo',sans-serif;font-size:12px}
+.gs-interpreter-window>div:first-child{gap:4px!important;padding:6px!important;background:#F2F6FA;border-radius:10px 10px 0 0}
+.gs-interpreter-window>div:first-child>button{font-size:12px;line-height:1.2;min-height:28px;padding:4px 7px;border:1px solid #D5DFE9;border-radius:7px;background:#fff;color:#2A405E;cursor:pointer}
+.gs-interp-controls{background:#F5F8FC!important;border:1px solid #DFE7F0!important;border-radius:9px;padding:8px!important;gap:7px!important}
+.gs-interp-controls select{border:1px solid #CFDCE9;border-radius:6px;background:white;min-height:28px}
+.gs-interp-controls button{cursor:pointer}
+.gs-interp-controls button:disabled{opacity:.4;cursor:not-allowed}
+.gs-interp-side{background:#FAFCFE;border:1px solid #E1E8F0;border-radius:9px;padding:8px}
+.gs-interp-side textarea{line-height:1.45!important;padding:6px 8px!important}
+.gs-interp-out{line-height:1.45!important;padding:7px 9px!important}
+.gs-editor-toolbar>.gs-group .gs-gbtn[aria-pressed="true"]{background:#223D5E!important;color:white!important}
 `; /* no external @import — the artifact sandbox only allows cdnjs.cloudflare.com,
    and fonts.googleapis.com is blocked there, which was breaking the whole preview.
    System font stacks below give a close, dependable equivalent on every platform. */
@@ -526,6 +550,7 @@ const S = {
   stProblem: ["Presenting problem", "현재 문제", "主訴問題"],
   stHistory: ["Family history · critical events", "가족사·주요 사건", "家族史・重大事件"],
   stStrength: ["Strengths and resources", "강점·자원", "優勢與資源"],
+  stAssignment: ["Tasks · suggestions", "과제·제안", "練習・建議"],
   stNote: ["Other notes", "기타 메모", "其他備註"],
 
   ctxTitle: ["Context for assessing the problem", "문제를 보는 맥락", "評估問題的脈絡"],
@@ -1876,12 +1901,12 @@ function PersonNode({ p, selected, detail, li, onDown, attrChips, events, ts = 1
       {p.death && <text x={31} y={-27} fontSize={infoSize*10.5/11} fill={T.ink2} fontFamily={FM}>{`'${String(p.death).slice(2)}`}</text>}
       <text y={y} textAnchor="middle" fontSize={nameSize} fontWeight={600} fill={T.ink} fontFamily={FB}
         stroke="#fff" strokeWidth={4.5} strokeLinejoin="round" paintOrder="stroke">{personName(p, li)}</text>
+      {occupationLines.map((l, i) => <text key={'o'+i} y={(y += occupationSize*1.35)} textAnchor="middle" fontSize={occupationSize} fill={T.sage} fontFamily={FB} fontWeight={500} stroke="#fff" strokeWidth={4} paintOrder="stroke">{l}</text>)}
+      {religionLines.map((l, i) => <text key={'g'+i} y={(y += religionSize*1.35)} textAnchor="middle" fontSize={religionSize} fill={T.sage} fontFamily={FB} fontWeight={500} stroke="#fff" strokeWidth={4} paintOrder="stroke">{l}</text>)}
       {roleLines.map((l, i) => (
         <text key={"r" + i} y={(y += roleSize*1.35)} textAnchor="middle" fontSize={roleSize} fill={T.sage} fontFamily={FB} fontWeight={500}
           stroke="#fff" strokeWidth={4} strokeLinejoin="round" paintOrder="stroke">{l}</text>
       ))}
-      {occupationLines.map((l, i) => <text key={'o'+i} y={(y += occupationSize*1.35)} textAnchor="middle" fontSize={occupationSize} fill={T.sage} fontFamily={FB} fontWeight={500} stroke="#fff" strokeWidth={4} paintOrder="stroke">{l}</text>)}
-      {religionLines.map((l, i) => <text key={'g'+i} y={(y += religionSize*1.35)} textAnchor="middle" fontSize={religionSize} fill={T.sage} fontFamily={FB} fontWeight={500} stroke="#fff" strokeWidth={4} paintOrder="stroke">{l}</text>)}
       {detail && flags.length > 0 && (
         <g transform={`translate(0,${(y += 15 * sp)})`}>
           {flags.map(([label, c], i) => {
@@ -2336,6 +2361,7 @@ function familyStoryBlocks(doc, li) {
     st.history && { key: "history", head: tr(S.stHistory, li), body: st.history, editable: true },
     st.strengths && { key: "strengths", head: tr(S.stStrength, li), body: st.strengths, editable: true },
     st.note && { key: "note", head: tr(S.stNote, li), body: st.note, editable: true },
+    st.assignment && { key: "assignment", head: tr(S.stAssignment, li), body: st.assignment, editable: true, tint: "#FFF5DE", accent: "#B88629" },
   ].filter(Boolean);
   const ctxBlocks = [
     cx.vert?.length && { key: "vert", head: tr(S.ctxVert, li), body: cx.vert.map((v) => tr(v, li)).join(" · ") },
@@ -2372,12 +2398,12 @@ function StoryCardGroup({kind,doc,blocks,baseX,baseY,accent,viewK,onMove,onEdit}
     const key=`${kind}:${b.key}`,fontSize=(b.fontPt||10)*4/3;
     const p=doc.cardPos?.[key]||{x:origin.x,y:nextY};
     nextY=Math.max(nextY,p.y+storyCardLayout(300,[{body:b.body}],fontSize,b.head).h+20);
-    return <SideCard key={key} x={p.x} y={p.y} w={300} title={b.head} blocks={[{body:b.body}]} accent={accent} fontSize={fontSize}
+    return <SideCard key={key} x={p.x} y={p.y} w={300} title={b.head} blocks={[{body:b.body}]} accent={b.accent||accent} tint={b.tint} fontSize={fontSize}
       draggable={!!onMove} viewK={viewK} onMove={onMove?(dx,dy)=>onMove(key,{x:p.x+dx,y:p.y+dy}):null}
       onDoubleClick={onEdit&&b.editable?()=>onEdit(kind,[b],p):null}/>;
   });
 }
-function SideCard({ x, y, w, title, blocks, accent, draggable, viewK, onMove, onDoubleClick, onToggleSplit, splitLabel, fontSize=13.333 }) {
+function SideCard({ x, y, w, title, blocks, accent, draggable, viewK, onMove, onDoubleClick, onToggleSplit, splitLabel, fontSize=13.333, tint="#fff" }) {
   const {rows,titleLines,h}=storyCardLayout(w,blocks,fontSize,title);
   /* 캔버스 위에서 직접 옮기기 — 화면 픽셀 이동량을 viewK로 나눠 그림 좌표로
      바꾼다. 옮기는 동안 계속 doc에 반영해 눈으로 보며 옮길 수 있게 한다. */
@@ -2404,7 +2430,7 @@ function SideCard({ x, y, w, title, blocks, accent, draggable, viewK, onMove, on
     <g data-story-card="true" transform={`translate(${x},${y})`} onPointerDown={onPointerDown}
       onDoubleClick={onDoubleClick ? (e) => { e.stopPropagation(); onDoubleClick(); } : undefined}
       style={draggable ? { cursor: "grab" } : undefined}>
-      <rect x={0} y={0} width={w} height={h} rx={10} fill="#fff" stroke={T.rule} strokeWidth={1.4} />
+      <rect x={0} y={0} width={w} height={h} rx={10} fill={tint} stroke={T.rule} strokeWidth={1.4} />
       <rect x={0} y={0} width={4} height={h} rx={2} fill={accent} />
       {titleLines.map((line,i)=><text key={i} x={16} y={fontSize+9+i*(fontSize+1.5)*1.4} fontSize={fontSize+1.5} fontFamily={FD} fontWeight={700} fill={T.ink}>{line}</text>)}
       {rows.map((r, i) => (
@@ -4810,8 +4836,8 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                 접어 여섯 개가 언제나 보이게 한다. */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 4, padding: "8px 8px 6px",
               background: "linear-gradient(180deg,#FBFCFD,#EFF3F7)", borderBottom: `1px solid ${T.rule}` }}>
-              {[["detail", t("tabDetail")], ["list", t("tabList")], ["story", t("tabStory")], ["context", t("tabContext")], ["time", t("tabTime")]].map(([k, l]) => (
-                <button key={k} type="button" onClick={() => setTab(k)}
+              {[["detail", t("tabDetail")], ["list", t("tabList")], ["story", t("tabStory")], ["time", t("tabTime")], ["context", t("tabContext")]].map(([k, l]) => (
+                <button key={k} type="button" data-panel-tab={k} onClick={() => setTab(k)}
                   style={{ flex: "0 0 auto", padding: "7px 12px", fontSize: 12, fontFamily: FB, cursor: "pointer", whiteSpace: "nowrap",
                     borderRadius: 14, border: "none",
                     background: tab === k ? "linear-gradient(155deg, #2C4A6E 0%, #17293F 100%)" : "transparent",
@@ -4961,14 +4987,12 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                     <Field label={t("deathF")}><input value={selPerson.death} onChange={(e) => updatePerson(selPerson.id, { death: e.target.value, deceased: e.target.value ? true : selPerson.deceased })} style={{ ...inputStyle, fontFamily: FM, padding: "5px 7px", fontSize: 12 }} placeholder="2020" /></Field>
                   </div>
                   <div style={{ fontSize: 10.5, color: T.mute, marginTop: -4 }}>{t("ageHint")}</div>
-                  <Field label={`${t("roleF")} — ${t("roleHint")}`}>
-                    <input value={selPerson.role} onChange={(e) => updatePerson(selPerson.id, { role: e.target.value })} style={inputStyle} />
-                  </Field>
-                  <TextSizePicker label={tr(["Role text size","역할 글자 크기","角色字級"],li)} value={textSize(selPerson.roleSize,11)} onChange={v=>updatePerson(selPerson.id,{roleSize:v})}/>
-                  <Field label={tr(["Occupation","직업","職業"],li)}><input value={selPerson.occupation||''} onChange={e=>updatePerson(selPerson.id,{occupation:e.target.value})} style={inputStyle}/></Field>
-                  <TextSizePicker label={tr(["Occupation text size","직업 글자 크기","職業字級"],li)} value={textSize(selPerson.occupationSize,11)} onChange={v=>updatePerson(selPerson.id,{occupationSize:v})}/>
-                  <Field label={tr(["Religion","종교","宗教"],li)}><input value={selPerson.religion||''} onChange={e=>updatePerson(selPerson.id,{religion:e.target.value})} style={inputStyle}/></Field>
-                  <TextSizePicker label={tr(["Religion text size","종교 글자 크기","宗教字級"],li)} value={textSize(selPerson.religionSize,11)} onChange={v=>updatePerson(selPerson.id,{religionSize:v})}/>
+                  {[['occupation','occupationSize',tr(['Occupation','직업','職業'],li)],['religion','religionSize',tr(['Religion','종교','宗教'],li)],['role','roleSize',tr(['Other information','기타','其他資料'],li)]].map(([key,sizeKey,label])=>(
+                    <div key={key} className="gs-person-info-field" style={{display:'flex',flexDirection:'column',gap:3}}>
+                      <TextSizePicker label={label} value={textSize(selPerson[sizeKey],11)} onChange={v=>updatePerson(selPerson.id,{[sizeKey]:v})}/>
+                      <input aria-label={label} value={selPerson[key]||''} onChange={e=>updatePerson(selPerson.id,{[key]:e.target.value})} style={inputStyle}/>
+                    </div>
+                  ))}
                   {/* 본인·사망·신체질환 — 개인 메모 앞으로 */}
                   <div className="gs-person-flags grid grid-cols-2" style={{ background: "#fff", borderRadius: 10,
                     border: "1px solid rgba(22,32,42,.13)", boxShadow: "0 1px 2px rgba(22,32,42,.05)", overflow: "hidden" }}>
@@ -5353,6 +5377,11 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                       <TextSizePicker label={l+" · "+tr(["Text size (pt)","글자 크기 (pt)","字級 (pt)"],li)} value={textSize(doc.storyFontSizes?.[k],10)} onChange={v=>setDoc(d=>({...d,storyFontSizes:{...d.storyFontSizes,[k]:v}}))}/>
                     </Field>
                   ))}
+                  <section className="gs-assignment" style={{background:'#FFF5DE',border:'1px solid #E3C886',borderLeft:'4px solid #B88629',borderRadius:9,padding:10,marginTop:6}}>
+                    <TextSizePicker label={t('stAssignment')} value={textSize(doc.storyFontSizes?.assignment,10)} onChange={v=>setDoc(d=>({...d,storyFontSizes:{...d.storyFontSizes,assignment:v}}))}/>
+                    <p style={{fontSize:11,lineHeight:1.4,color:'#705520',margin:'5px 0'}}>{tr(['Record suggestions, practice between sessions, and what to discuss next time.','상담사가 제안한 실천, 다음 만남까지 해볼 일, 다시 나눌 내용을 기록합니다.','記錄諮商師的建議、會談間的練習及下次討論事項。'],li)}</p>
+                    <textarea aria-label={t('stAssignment')} rows={3} value={doc.story.assignment||''} onChange={e=>setDoc(d=>({...d,story:{...d.story,assignment:e.target.value}}))} style={{...inputStyle,resize:'vertical',background:'#FFFCF4'}}/>
+                  </section>
                 </div>
               )}
 
@@ -8303,7 +8332,7 @@ function LangTabs({ tab, onTab, li }) {
 }
 function InterpreterWindow({ li, open, onClose, docked, onToggleDock, onTab }) {
   const floating = useFloatingPanel(LANG_PANEL_KEY, dockDefaultRect("language"));
-  const [full, setFull] = useState(false), [fold, setFold] = useState(false), [fs, setFs] = useState(3);
+  const [full, setFull] = useState(false), [fold, setFold] = useState(false), [fs, setFs] = useState(2);
   const [cfg, setCfg] = useState(() => { try { return { speed: 1, autoRead: true, review: false, ...JSON.parse(localStorage.getItem("gs:interpreter-settings") || "{}") }; } catch { return { speed: 1, autoRead: true, review: false }; } });
   const setC = (patch) => setCfg((c) => { const next = { ...c, ...patch }; try { localStorage.setItem("gs:interpreter-settings", JSON.stringify(next)); } catch {} return next; });
   useEffect(() => { if (open) warmUp(["gpt-translate", "whisper", "tts"]); }, [open]);
@@ -8851,9 +8880,9 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
   };
 
   const renderSide = ({ who, name, lang, setLang, spoken, translated, onSend }) => (
-    <div className="gs-interp-side" style={{ flex: "1 1 280px", display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+    <div className="gs-interp-side" style={{ flex: "1 1 280px", alignSelf: "flex-start", display: "flex", flexDirection: "column", gap: 5, minWidth: 0 }}>
       <div style={{ fontWeight: 700, fontSize: 12 }}>{name}</div>
-      <div style={{ display: "flex", flex: "1 0 auto", gap: 8, alignItems: "stretch" }}>
+      <div style={{ display: "flex", flex: "0 0 auto", gap: 8, alignItems: "stretch" }}>
         <textarea value={spoken}
           onChange={(e) => who === "me" ? setMyText(e.target.value) : setTheirText(e.target.value)}
           onKeyDown={(e) => keyboard.onKeyDown(e, onSend, who === "me" ? setMyText : setTheirText)} onKeyUp={keyboard.onKeyUp} onBlur={keyboard.onBlur}
@@ -8898,7 +8927,7 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
   );
 
   return (
-    <div className="gs-interp" style={{ display: "flex", flexDirection: "column", width: "100%", minHeight: "100%", gap: 8 }}>
+    <div className="gs-interp" style={{ display: "flex", flexDirection: "column", width: "100%", alignSelf: "flex-start", gap: 8 }}>
       <style>{`@keyframes pulse { 0%,100% { box-shadow: 0 0 0 4px rgba(192,57,43,.2); } 50% { box-shadow: 0 0 0 10px rgba(192,57,43,.05); } }`}</style>
       <div className="gs-interp-controls" style={{ position: "sticky", top: 0, zIndex: 2, background: "#fff", padding: "6px 0", borderBottom: `1px solid ${T.rule}`, display: "flex", flexDirection: "column", gap: 6 }}>
         {renderControls("me", tr(["Counsellor", "상담사", "諮商師"], li), myLang, setMyLang, myText, myTrans)}
@@ -8916,7 +8945,7 @@ function InterpreterSection({ li, px, cfg, setC, open }) {
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
         <VoiceStatus li={li} sp={playback} />
       </div>
-      <div style={{ display: "flex", flex: 1, gap: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
         {renderSide({ who: "me", name: tr(["Counsellor", "상담사", "諮商師"], li), lang: myLang, setLang: setMyLang, spoken: myText, translated: myTrans, onSend: () => sendText("me") })}
         {renderSide({ who: "them", name: tr(["Client", "내담자", "來訪者"], li), lang: theirLang, setLang: setTheirLang, spoken: theirText, translated: theirTrans, onSend: () => sendText("them") })}
       </div>
@@ -9076,6 +9105,13 @@ function Home({li,setLi,go,onNew,onOpenFile,cases,loadCase,storageOK,fileRef,onI
         <div className="gs-home-actions"><button className="gs-primary" onClick={onNew}>＋ {t('m2')}</button>
           <button className="gs-secondary" onClick={onOpenFile}>{tr(['Open a case file','가계도 파일 열기','開啟個案檔案'],li)}</button></div>
       </div>
+      <section className="gs-update-notice" aria-label={tr(["Update information", "업데이트 안내", "更新說明"], li)} style={{display:"flex",alignItems:"flex-start",gap:12,background:"#F8FBFF",border:"1px solid #C9DCEF",borderLeft:"4px solid #315D99",borderRadius:10,padding:"12px 15px",margin:"0 0 18px",color:"#284765"}}>
+        <div style={{width:22,height:22,borderRadius:"50%",background:"#315D99",color:"#fff",display:"grid",placeItems:"center",fontWeight:700,flexShrink:0}}>i</div>
+        <div>
+          <strong style={{fontSize:13}}>{tr(["Update information", "업데이트 안내", "更新說明"], li)}</strong>
+          <p style={{fontSize:12,lineHeight:1.55,margin:"4px 0 0"}}>{tr(["Your saved genograms are kept unchanged. The former Role field is now shown as Other, and a new Tasks · suggestions field is available for notes about practice or suggestions for the next meeting.", "기존에 저장한 가계도 내용은 그대로 유지됩니다. 기존 ‘역할’ 내용은 ‘기타’에서 확인할 수 있고, 새로 추가된 ‘과제·제안’에는 다음 만남까지 해볼 일이나 상담사의 제안을 기록할 수 있습니다.", "已儲存的家系圖內容會完整保留。原本的「角色」內容現在顯示在「其他」；新增的「練習・建議」可記錄下次會談前的練習與諮商師建議。"], li)}</p>
+        </div>
+      </section>
       {draft?.doc && (
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
           background: "#EFF5FE", border: "1px solid #B9D4F5", borderRadius: 12, padding: "12px 16px", margin: "0 0 18px" }}>

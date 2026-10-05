@@ -2663,6 +2663,16 @@
    "ambiguous": true
   },
   {
+   "en": "Tasks · suggestions",
+   "ko": "과제·제안",
+   "zh": "練習・建議",
+   "section": "S",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
    "en": "Other notes",
    "ko": "기타 메모",
    "zh": "其他備註",
@@ -5023,16 +5033,6 @@
    "ambiguous": false
   },
   {
-   "en": "Role text size",
-   "ko": "역할 글자 크기",
-   "zh": "角色字級",
-   "section": "Editor",
-   "words": 3,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
    "en": "Occupation",
    "ko": "직업",
    "zh": "職業",
@@ -5043,21 +5043,11 @@
    "ambiguous": false
   },
   {
-   "en": "Occupation text size",
-   "ko": "직업 글자 크기",
-   "zh": "職業字級",
+   "en": "Other information",
+   "ko": "기타",
+   "zh": "其他資料",
    "section": "Editor",
-   "words": 3,
-   "tier": 1,
-   "uses": 1,
-   "ambiguous": false
-  },
-  {
-   "en": "Religion text size",
-   "ko": "종교 글자 크기",
-   "zh": "宗教字級",
-   "section": "Editor",
-   "words": 3,
+   "words": 2,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
@@ -5188,6 +5178,16 @@
    "zh": "顯示全部關係名稱",
    "section": "Editor",
    "words": 4,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Record suggestions, practice between sessions, and what to discuss next time.",
+   "ko": "상담사가 제안한 실천, 다음 만남까지 해볼 일, 다시 나눌 내용을 기록합니다.",
+   "zh": "記錄諮商師的建議、會談間的練習及下次討論事項。",
+   "section": "Editor",
+   "words": 11,
    "tier": 1,
    "uses": 1,
    "ambiguous": false
