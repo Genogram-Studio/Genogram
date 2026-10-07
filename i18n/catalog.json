@@ -1,6 +1,6 @@
 {
  "generatedFrom": "src/App.jsx",
- "count": 1098,
+ "count": 1108,
  "items": [
   {
    "en": "Genogram Studio",
@@ -4613,6 +4613,56 @@
    "ambiguous": false
   },
   {
+   "en": "Choose a stroke",
+   "ko": "필기 선택",
+   "zh": "選擇筆跡",
+   "section": "Editor",
+   "words": 3,
+   "tier": 1,
+   "uses": 2,
+   "ambiguous": false
+  },
+  {
+   "en": "Stroke",
+   "ko": "필기",
+   "zh": "筆跡",
+   "section": "Editor",
+   "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Original stroke",
+   "ko": "손그림 원본",
+   "zh": "原始筆跡",
+   "section": "Editor",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Use clean shape",
+   "ko": "정리한 도형 사용",
+   "zh": "使用整齊圖形",
+   "section": "Editor",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Your selection is used on screen and in print. Drag the shape to move it; drag its corner to resize.",
+   "ko": "선택한 모양으로 화면·인쇄에 표시합니다. 도형을 끌어 이동하고 모서리로 크기를 조절하세요.",
+   "zh": "畫面與列印皆使用所選樣式。拖曳圖形移動，拖曳角落調整大小。",
+   "section": "Editor",
+   "words": 20,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
    "en": "Clear pen strokes",
    "ko": "필기만 지우기",
    "zh": "清除筆跡",
@@ -4720,6 +4770,56 @@
    "words": 3,
    "tier": 1,
    "uses": 2,
+   "ambiguous": false
+  },
+  {
+   "en": "Pen drawing",
+   "ko": "필기 도형",
+   "zh": "手繪圖形",
+   "section": "Editor",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Choose a clean shape in the pen toolbar, or keep your original drawing. Your original strokes remain saved.",
+   "ko": "상단 필기 메뉴에서 도형을 고르거나 손그림 원본으로 되돌릴 수 있습니다. 원본 필기는 함께 저장됩니다.",
+   "zh": "在上方筆跡選單選擇圖形，或還原手繪。原始筆跡會一併儲存。",
+   "section": "Editor",
+   "words": 18,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Keep this position",
+   "ko": "이 박스 위치 고정",
+   "zh": "固定此框位置",
+   "section": "Editor",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Arrange note boxes",
+   "ko": "설명 상자 겹침 정리",
+   "zh": "整理說明框",
+   "section": "Editor",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Fixed boxes stay in place. Dragging a box fixes its position; uncheck to include it in arranging.",
+   "ko": "고정된 박스는 움직이지 않습니다. 직접 옮긴 박스는 자동 고정되며, 체크를 해제하면 정리에 포함됩니다.",
+   "zh": "固定的框不會移動。手動移動後會固定位置，取消勾選即可一起整理。",
+   "section": "Editor",
+   "words": 17,
+   "tier": 1,
+   "uses": 1,
    "ambiguous": false
   },
   {

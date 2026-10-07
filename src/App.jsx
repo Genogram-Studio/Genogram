@@ -1,6 +1,7 @@
 import { normalizeTextSettings, textSize } from "./textSettings.js";
 import PrintReport from "./PrintReport.jsx";
 import { normalizeUnions } from "./unionCleanup.js";
+import { FONT_STEPS, stepFont, fitInkShape, shapePath, inkBounds, inkHit, findNoteSpace } from "./drawingTools.js";
 import React, { useState, useRef, useMemo, useEffect, useCallback, createContext, useContext } from "react";
 import { HAS_AI, EDITION, BUILD, FULL_URL } from "./edition.js";
 import { LANGS, BASE_LANG_COUNT, packText, langIndexOf } from "./locales.js";   // 화면 언어 목록과 언어팩(locales/xx.json)
@@ -2375,11 +2376,14 @@ function familyStoryBlocks(doc, li) {
    가진 블록 수만큼 독립된 상자로 흩어진다. 옮긴 자리는 doc.cardPos에,
    나뉜 상태는 doc.storySplit/ctxSplit에 남아 다음에 열어도 그대로다. */
 function TextSizePicker({label,value,onChange}) {
-  return <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,fontSize:12,color:T.ink2}}>{label}
-    <select aria-label={label} value={value} onChange={e=>onChange(+e.target.value)} style={{...inputStyle,width:82}}>
-      {[...new Set([6,8,9,10,11,12,13,14,16,18,20,24,28,32,36,48,value])].sort((a,b)=>a-b).map(n=><option key={n} value={n}>{Math.round(n*10)/10}</option>)}
+  const buttonStyle={border:`1px solid ${T.rule}`,borderRadius:6,background:'#fff',color:T.ink2,padding:'2px 6px',cursor:'pointer',minWidth:24};
+  return <div style={{display:"flex",flexWrap:'wrap',alignItems:"center",justifyContent:"space-between",gap:4,fontSize:12,color:T.ink2}}><span>{label}</span><span style={{display:'flex',gap:3,alignItems:'center'}}>
+    <button type="button" style={buttonStyle} aria-label={`${label} −`} disabled={value<=6} onClick={()=>onChange(stepFont(value,-1))}>−</button>
+    <select aria-label={label} value={value} onChange={e=>onChange(+e.target.value)} style={{...inputStyle,width:60}}>
+      {[...new Set([...FONT_STEPS,value])].sort((a,b)=>a-b).map(n=><option key={n} value={n}>{Math.round(n*10)/10}</option>)}
     </select>
-  </label>;
+    <button type="button" style={buttonStyle} aria-label={`${label} +`} disabled={value>=48} onClick={()=>onChange(stepFont(value,1))}>+</button>
+  </span></div>;
 }
 function storyCardLayout(w,blocks,fontSize=13.333,title="") {
   const titleSize=fontSize+1.5, titleUnit=/[\uac00-\ud7a3\u3400-\u9fff]/.test(title)?titleSize:titleSize*.6;
@@ -3169,7 +3173,7 @@ function docBounds(doc, opts = {}) {
     const x=p.x-90+(offset.dx||0), y=p.y+personClearance(p,true)+12+(offset.dy||0);
     extra.push({x,y},{x:x+180,y:y+Math.max(28,lines.length*size*1.42+13)});
   });
-  (doc.ink||[]).forEach(st=>st.pts.forEach(p=>extra.push({x:p[0],y:p[1]})));
+  (doc.ink||[]).forEach(st=>{const b=inkBounds(st);extra.push({x:b.x,y:b.y},{x:b.x+b.w,y:b.y+b.h});});
   const x=Math.min(left,...extra.map(p=>p.x-24)),y=Math.min(top,...extra.map(p=>p.y-24));
   return {x,y,w:Math.max(left+w,...extra.map(p=>p.x+24))-x,h:Math.max(top+h,...extra.map(p=>p.y+24))-y};
 }
@@ -3187,6 +3191,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
   const setPenW=w=>setPenSettings(v=>({...v,[penKey]:{...v[penKey],w}}));
   const [penErase, setPenErase] = useState(false);
   const [noteSize, setNoteSize] = useState(12);
+  const inkDrag = useRef(null);
   const [delAsk, setDelAsk] = useState(null);      // 삭제 확인 중인 저장 사례 — 한 번 누르면 확인, 두 번째 누르면 삭제
   const [noteColor, setNoteColor] = useState('ink');
   const [menu, setMenu] = useState(null);   // 펼쳐 둔 갈래: add | ink | view | layer
@@ -3580,8 +3585,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
   const eraseAt = (e) => {
     const w = toWorld(e.clientX, e.clientY);
     const r = (penW * 2.5) / view.k;
-    setDoc((d) => ({ ...d, ink: (d.ink || []).filter((st) =>
-      !st.pts.some((q) => Math.hypot(q[0] - w.x, q[1] - w.y) < r)) }), "erase");
+    setDoc((d) => ({ ...d, ink: (d.ink || []).filter(st=>!inkHit(st,w.x,w.y,r)) }), "erase");
   };
 
   const onInkDown = (e) => {
@@ -3609,6 +3613,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
     /* 필압을 굵기에 반영해 한 획의 평균 굵기를 정한다 */
     const avg = st.pts.reduce((n, q) => n + q[2], 0) / st.pts.length;
     setDoc((d) => ({ ...d, ink: [...(d.ink || []), { ...st, w: st.hi?st.w:+(st.w * (0.55 + avg)).toFixed(1) }] }));
+    setSel({kind:'ink',id:st.id});setMenu('ink');
   };
 
   /* 눌린 자리에 이미 메모가 있는지 본다. 화면 배율이 달라져도 손끝
@@ -3784,8 +3789,8 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
       if (!v) return { ...d, notes: notes.filter((n) => n.id !== ed.id) };   // 비우면 지운다
       const found = notes.some((n) => n.id === ed.id);
       return { ...d, notes: found
-        ? notes.map((n) => (n.id === ed.id ? { ...n, text: v } : n))
-        : [...notes, { id: ed.id, x: ed.x, y: ed.y, text: v, color: ed.color, size: ed.size, anchor:ed.anchor||null, connector:{axis:"auto",side:"auto",offset:0} }] };
+        ? notes.map((n) => (n.id === ed.id ? { ...n, text: v, size:ed.size } : n))
+        : [...notes, placeNote({ id: ed.id, x: ed.x, y: ed.y, text: v, color: ed.color, size: ed.size, anchor:ed.anchor||null, connector:{axis:"auto",side:"auto",offset:0} },d)] };
     });
   };
 
@@ -3821,7 +3826,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
     const w=toWorld(e.clientX,e.clientY),nx=Math.round(w.x+nd.dx),ny=Math.round(w.y+nd.dy);
     nd.moved=true;
     const id=nd.id;
-    setDoc(d=>({...d,notes:(d.notes||[]).map(n=>n.id===id?{...n,x:nx,y:ny}:n)}),`note:${id}`);
+    setDoc(d=>({...d,notes:(d.notes||[]).map(n=>n.id===id?{...n,x:nx,y:ny,positionLocked:true}:n)}),`note:${id}`);
   };
   const onTextUp = () => {
     const nd=noteDrag.current;noteDrag.current=null;
@@ -3904,6 +3909,11 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
   };
   const onMove = (e) => {
     if (pinch.current) return;
+    if(inkDrag.current){
+      const drag=inkDrag.current,p=toWorld(e.clientX,e.clientY),dx=p.x-drag.start.x,dy=p.y-drag.start.y,s=drag.shape;
+      const shape=drag.resize?{...s,w:Math.max(8,s.w+dx),h:s.kind==='underline'?0:Math.max(8,s.h+dy)}:{...s,x:s.x+dx,y:s.y+dy};
+      setDoc(d=>({...d,ink:(d.ink||[]).map(st=>st.id===drag.id?{...st,shape}:st)}),`ink-move:${drag.id}`);return;
+    }
     if(bendDrag.current){const bd=bendDrag.current,w=toWorld(e.clientX,e.clientY),offset=bd.offset+(bd.axis==='horizontal'?w.x:w.y)-bd.start;
       setDoc(d=>({...d,notes:(d.notes||[]).map(n=>n.id===bd.id?{...n,connector:{...n.connector,axis:bd.axis,offset}}:n)}),`bend:${bd.id}`);return;}
 
@@ -3984,6 +3994,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
   };
   const onUp = () => {
     if (pinch.current) return;
+    if(inkDrag.current){inkDrag.current=null;return;}
     if(bendDrag.current){bendDrag.current=null;return;}
     if (noteDrag.current) { onTextUp(); return; }
     if (stroke.current) { onInkUp(); return; }
@@ -4143,7 +4154,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
       x = Math.round(w.x - 60); y = Math.round(w.y - 30);
     }
     const id = uid();
-    setDoc((d) => ({ ...d, notes: [...(d.notes || []), { id, x, y, text: v, color: T.ink2, size: 12, anchor, connector: { axis: "auto", side: "auto", offset: 0 } }] }));
+    setDoc((d) => ({ ...d, notes: [...(d.notes || []), placeNote({ id, x, y, text: v, color: T.ink2, size: 12, anchor, connector: { axis: "auto", side: "auto", offset: 0 } },d)] }));
     setSel({ kind: "note", id });
     return true;
   };
@@ -4161,7 +4172,24 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
 
 
   const selNote=sel?.kind==='note'?(doc.notes||[]).find(n=>n.id===sel.id):null;
-  const updateNote=patch=>setDoc(d=>({...d,notes:(d.notes||[]).map(n=>n.id===sel.id?{...n,...patch}:n)}),`edit-note:${sel?.id}`);
+  const updateNote=patch=>setDoc(d=>({...d,notes:(d.notes||[]).map(n=>n.id===sel.id?(patch.size&&!n.positionLocked?placeNote({...n,...patch},d):{...n,...patch}):n)}),`edit-note:${sel?.id}`);
+  const arrangeNotes=()=>setDoc(d=>{
+    const placed=(d.notes||[]).filter(n=>n.positionLocked);
+    const result=new Map(placed.map(n=>[n.id,n]));
+    (d.notes||[]).filter(n=>!n.positionLocked).forEach(n=>{
+      const next=placeNote(n,{...d,notes:placed});placed.push(next);result.set(n.id,next);
+    });
+    return {...d,notes:(d.notes||[]).map(n=>result.get(n.id))};
+  });
+  const selInk=sel?.kind==='ink'?(doc.ink||[]).find(s=>s.id===sel.id):null;
+  const editInk=patch=>setDoc(d=>({...d,ink:(d.ink||[]).map(s=>s.id===sel?.id?{...s,...patch}:s)}));
+  const selectInk=(id)=>{setSel({kind:'ink',id});setPen(false);setTextMode(false);setMenu('ink');};
+  const beginInkDrag=(e,resize=false)=>{
+    if(!selInk?.shapeEnabled)return;
+    e.stopPropagation();e.preventDefault();
+    inkDrag.current={id:selInk.id,shape:{...selInk.shape},start:toWorld(e.clientX,e.clientY),resize};
+    svgRef.current?.setPointerCapture?.(e.pointerId);
+  };
   const selPerson = sel?.kind === "person" ? byId[sel.id] : null;
   const selUnion = sel?.kind === "union" ? doc.unions.find((u) => u.id === sel.id) : null;
   const selBond = sel?.kind === "bond" ? doc.bonds.find((x) => x.id === sel.id) : null;
@@ -4177,6 +4205,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
     if (!sel) return;
     const id = sel.id;
     if (sel.kind === "note") setDoc(d=>({...d,notes:(d.notes||[]).filter(n=>n.id!==id)}));
+    else if(sel.kind==='ink')setDoc(d=>({...d,ink:(d.ink||[]).filter(n=>n.id!==id)}));
     else if (sel.kind === "person") removePerson(id);
     else if (sel.kind === "union") setDoc((d) => ({ ...d, unions: d.unions.filter((u) => u.id !== id), people: d.people.map((p) => (p.puid === id ? { ...p, puid: null } : p)) }));
     else if (sel.kind === "bond") {
@@ -4213,7 +4242,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
       }
       if(selNote&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){
         e.preventDefault();const step=e.shiftKey?10:2;
-        updateNote({x:selNote.x+(e.key==='ArrowRight'?step:e.key==='ArrowLeft'?-step:0),y:selNote.y+(e.key==='ArrowDown'?step:e.key==='ArrowUp'?-step:0)});return;
+        updateNote({x:selNote.x+(e.key==='ArrowRight'?step:e.key==='ArrowLeft'?-step:0),y:selNote.y+(e.key==='ArrowDown'?step:e.key==='ArrowUp'?-step:0),positionLocked:true});return;
       }
       if ((e.key === "Delete" || e.key === "Backspace") && sel) { e.preventDefault(); deleteSelected(); }
     };
@@ -4453,6 +4482,16 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
               </div>
             </>)}
             {menu === "ink" && (<>
+              <select aria-label={tr(['Choose a stroke','필기 선택','選擇筆跡'],li)} style={{...inputStyle,width:130}} value={selInk?.id||''} onChange={e=>selectInk(e.target.value)}>
+                <option value="">{tr(['Choose a stroke','필기 선택','選擇筆跡'],li)}</option>
+                {(doc.ink||[]).map((st,i)=><option key={st.id} value={st.id}>{tr(['Stroke','필기','筆跡'],li)} {i+1}</option>)}
+              </select>
+              {selInk&&<>
+                {['ellipse','rectangle','underline','arrow'].map((kind,i)=><GBtn key={kind} active={selInk.shapeEnabled&&selInk.shape?.kind===kind} onClick={()=>{editInk({shape:fitInkShape(selInk,kind),shapeEnabled:true});setPen(false);}}>{tr([['Circle','Rectangle','Underline','Arrow'],['동그라미','사각형','밑줄','화살표'],['圓形','矩形','底線','箭頭']],li)[i]}</GBtn>)}
+                <GBtn active={!selInk.shapeEnabled} onClick={()=>editInk({shapeEnabled:false})}>{tr(['Original stroke','손그림 원본','原始筆跡'],li)}</GBtn>
+                {selInk.shape&&!selInk.shapeEnabled&&<GBtn onClick={()=>editInk({shapeEnabled:true})}>{tr(['Use clean shape','정리한 도형 사용','使用整齊圖形'],li)}</GBtn>}
+                <span style={{fontSize:11,color:T.mute}}>{tr(['Your selection is used on screen and in print. Drag the shape to move it; drag its corner to resize.','선택한 모양으로 화면·인쇄에 표시합니다. 도형을 끌어 이동하고 모서리로 크기를 조절하세요.','畫面與列印皆使用所選樣式。拖曳圖形移動，拖曳角落調整大小。'],li)}</span>
+              </>}
               <Group>
                 <GBtn first active={pen&&!penHi&&!penErase} onClick={() => selectPen(false)}>
                   <svg width={15} height={15} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
@@ -4565,7 +4604,11 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                 onHH={(id) => { setSel({ kind: "household", id }); setTab("detail"); setPanelOpen(true); }}
                 onTri={(id) => { setSel({ kind: "triangle", id }); setTab("detail"); setPanelOpen(true); }}
                 onDown={onNodeDown} />
-                          {vis.ink && !tlg && <InkLayer strokes={doc.ink || []} live={live} />}
+                          {vis.ink && !tlg && <InkLayer strokes={doc.ink || []} live={live} onSelect={!pen&&!textMode?selectInk:null} />}
+                          {vis.ink&&!tlg&&selInk?.shapeEnabled&&!pen&&<g data-ink-transform="" data-noprint="" onPointerDown={e=>beginInkDrag(e)}>
+                            <rect x={selInk.shape.x-6} y={selInk.shape.y-6} width={selInk.shape.w+12} height={selInk.shape.h+12} fill="transparent" stroke={T.sage} strokeWidth={1/view.k} strokeDasharray={`${4/view.k} ${4/view.k}`} style={{cursor:'move'}}/>
+                            <rect x={selInk.shape.x+selInk.shape.w-5/view.k} y={selInk.shape.y+selInk.shape.h-5/view.k} width={10/view.k} height={10/view.k} fill="white" stroke={T.sage} strokeWidth={1/view.k} style={{cursor:'nwse-resize'}} onPointerDown={e=>beginInkDrag(e,true)}/>
+                          </g>}
                           {vis.note && !tlg && <NoteLayer notes={doc.notes || []} doc={doc} detail={detail} vis={vis} hideId={editing?.id} selected={sel?.kind==="note"?sel.id:null} onDown={beginNoteDrag} onEdit={editNote} onBend={beginBend} />}
 
             </g>
@@ -4711,13 +4754,13 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
 
               {textMode && (
                 <div style={{ display: "flex", gap: 5, borderTop: `1px solid ${T.rule}`, paddingTop: 6 }}>
-                  {[12, 16, 22].map((z, i) => (
+                  {[12,14,16,18].map((z, i) => (
                     <button key={z} type="button" onClick={() => setNoteSize(z)}
                       style={{ flex: 1, height: 26, borderRadius: 7, cursor: "pointer",
                         fontSize: 10 + i * 3, fontWeight: 700, fontFamily: FB,
                         color: noteSize === z ? "#fff" : T.ink2,
                         background: noteSize === z ? T.pine : "#fff",
-                        border: `1px solid ${noteSize === z ? T.pine : T.rule}` }}>가</button>
+                        border: `1px solid ${noteSize === z ? T.pine : T.rule}` }}>{z}</button>
                   ))}
                 </div>
               )}
@@ -4740,14 +4783,13 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
           {/* 선택한 설명 박스의 글씨를 바로 키우고 줄이는 작은 단추(기본은 12). 오른쪽 위에 붙는다. */}
           {selNote && !editing && (() => {
             const b = noteBounds(selNote);
-            const SIZES = [6, 8, 9, 10, 12, 14, 16, 18, 22, 28, 32, 36, 48];
             const cur = selNote.size || 12;
-            const idx = SIZES.includes(cur) ? SIZES.indexOf(cur) : Math.max(0, SIZES.findIndex((z) => z >= cur));
-            const bump = (d) => updateNote({ size: SIZES[Math.min(SIZES.length - 1, Math.max(0, idx + d))] });
+            const bump = (direction) => updateNote({ size: stepFont(cur,direction) });
             const bs = { border: `1px solid ${T.rule}`, background: "#fff", color: T.ink2, borderRadius: 6, cursor: "pointer", fontSize: 10.5, fontWeight: 700, padding: "0 6px", lineHeight: 1.5, fontFamily: FB, boxShadow: "0 1px 4px rgba(22,32,42,.18)" };
             return (
               <div className="gs-note-size" data-noprint onPointerDown={(e) => e.stopPropagation()}
-                style={{ position: "absolute", zIndex: 9, left: view.x + (b.x + b.w) * view.k - 50, top: view.y + b.y * view.k - 21, display: "flex", gap: 2 }}>
+                style={{ position: "absolute", zIndex: 9, right: 12, top: 62, display: "flex", gap: 4, padding:6, background:'#fff', borderRadius:8 }}>
+                <span style={{fontSize:12,color:T.ink2}}>{cur}</span>
                 <button type="button" className="gs-note-size-dn" title={tr(['Smaller text','글씨 작게','縮小文字'],li)} onClick={() => bump(-1)} style={bs}>A−</button>
                 <button type="button" className="gs-note-size-up" title={tr(['Larger text','글씨 크게','放大文字'],li)} onClick={() => bump(1)} style={bs}>A+</button>
               </div>
@@ -4847,16 +4889,23 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
               ))}
             </div>
             <div className="gs-panel-content" style={{ flex: 1, overflowY: "auto", padding: 14 }}>
+              {tab==='detail'&&selInk&&<div className="gs-note-panel">
+                <SectionTitle>{tr(['Pen drawing','필기 도형','手繪圖形'],li)}</SectionTitle>
+                <p className="gs-help">{tr(['Choose a clean shape in the pen toolbar, or keep your original drawing. Your original strokes remain saved.','상단 필기 메뉴에서 도형을 고르거나 손그림 원본으로 되돌릴 수 있습니다. 원본 필기는 함께 저장됩니다.','在上方筆跡選單選擇圖形，或還原手繪。原始筆跡會一併儲存。'],li)}</p>
+                <Btn onClick={()=>{deleteSelected();}}>{t('del')}</Btn>
+              </div>}
 
               {tab==='detail' && selNote && <div className="gs-note-panel">
                 <SectionTitle>{tr(['Annotation','설명 박스','說明框'],li)}</SectionTitle>
+                <label style={{fontSize:12}}><input type="checkbox" checked={!!selNote.positionLocked} onChange={e=>updateNote({positionLocked:e.target.checked})}/>{tr(['Keep this position','이 박스 위치 고정','固定此框位置'],li)}</label>
+                <Btn onClick={arrangeNotes}>{tr(['Arrange note boxes','설명 상자 겹침 정리','整理說明框'],li)}</Btn>
+                <p className="gs-help">{tr(['Fixed boxes stay in place. Dragging a box fixes its position; uncheck to include it in arranging.','고정된 박스는 움직이지 않습니다. 직접 옮긴 박스는 자동 고정되며, 체크를 해제하면 정리에 포함됩니다.','固定的框不會移動。手動移動後會固定位置，取消勾選即可一起整理。'],li)}</p>
                 <p className="gs-help">{tr(['Drag the box to move it. Double-click to edit.','박스를 끌어 이동하고, 두 번 눌러 글을 고칩니다.','拖曳移動說明框，點兩下編輯文字。'],li)}</p>
                 <Field label={tr(['Text','설명 내용','說明內容'],li)}>
                   <textarea rows={4} value={selNote.text} onChange={e=>updateNote({text:e.target.value})} style={{...inputStyle,resize:'vertical',lineHeight:1.65}}/>
                 </Field>
                 <div className="grid grid-cols-2" style={{gap:12}}>
-                  <Field label={tr(['Text size','글자 크기','文字大小'],li)}><select value={selNote.size||12} onChange={e=>updateNote({size:+e.target.value})} style={inputStyle}>
-                    {[...new Set([6,8,9,10,12,14,16,18,22,28,selNote.size||12])].sort((a,b)=>a-b).map(n=><option key={n} value={n}>{n}</option>)}</select></Field>
+                  <TextSizePicker label={tr(['Text size','글자 크기','文字大小'],li)} value={selNote.size||12} onChange={size=>updateNote({size})}/>
                   <Field label={tr(['Color','색상','顏色'],li)}><input aria-label={tr(['Note color','설명 색상','說明顏色'],li)} type="color" value={selNote.color||T.ink2} onChange={e=>updateNote({color:e.target.value})} style={{...inputStyle,height:40}}/></Field>
                 </div>
                 <div style={{display:'flex',justifyContent:'flex-end',margin:'-4px 0 8px'}}>
@@ -4990,7 +5039,7 @@ function Editor({ doc, setDoc, li, cases, storageOK, openSave, onOpenFile, loadC
                   {[['occupation','occupationSize',tr(['Occupation','직업','職業'],li)],['religion','religionSize',tr(['Religion','종교','宗教'],li)],['role','roleSize',tr(['Other information','기타','其他資料'],li)]].map(([key,sizeKey,label])=>(
                     <div key={key} className="gs-person-info-field" style={{display:'flex',flexDirection:'column',gap:3}}>
                       <TextSizePicker label={label} value={textSize(selPerson[sizeKey],11)} onChange={v=>updatePerson(selPerson.id,{[sizeKey]:v})}/>
-                      <input data-trans aria-label={label} value={selPerson[key]||''} onChange={e=>updatePerson(selPerson.id,{[key]:e.target.value})} style={inputStyle}/>
+                      <input data-trans="" aria-label={label} value={selPerson[key]||''} onChange={e=>updatePerson(selPerson.id,{[key]:e.target.value})} style={inputStyle}/>
                     </div>
                   ))}
                   {/* 본인·사망·신체질환 — 개인 메모 앞으로 */}
@@ -6632,6 +6681,11 @@ const balancedNoteLines = text => String(text||'').replace(/\u200B/g,'').split('
   return out.some(s=>s.length>limit+4)?initial:out;
 });
 let noteMeasureCanvas=null;
+function placeNote(note,doc) {
+  const obstacles=(doc.notes||[]).filter(n=>n.id!==note.id).map(noteBounds);
+  (doc.people||[]).forEach(p=>obstacles.push({x:p.x-48,y:p.y-38,w:96,h:130}));
+  return findNoteSpace(note,obstacles,noteBounds);
+}
 function noteBounds(n) {
   const size=textSize(n.size,12), lines=balancedNoteLines(n.text);
   /* 글자 수로 폭을 추정하면 영어의 가는 글자(i, l 등)가 많을 때 오른쪽에
@@ -6802,13 +6856,18 @@ function NoteLayer({notes,doc,hideId,selected,detail=true,onDown,onEdit,onBend,v
   </g>;
 }
 
-function InkLayer({ strokes, live }) {
-  const draw = (st, key) => (
-    <path key={key} d={inkPath(st.pts)} fill="none" stroke={st.color}
-      strokeWidth={st.w} strokeLinecap={st.hi&&st.inkStyle===2?'butt':'round'} strokeLinejoin="round"
-      opacity={st.inkStyle===2?(st.hi?.28:1):(st.hi?.42:.95)}
-      style={st.hi ? { mixBlendMode: "multiply" } : undefined} />
-  );
+function InkLayer({ strokes, live, onSelect }) {
+  const draw = (st, key) => {
+    const clean=st.shapeEnabled&&st.shape;
+    const d=clean?shapePath(st.shape):inkPath(st.pts);
+    return <g key={key} data-ink-id={st.id}>
+      <path d={d} fill="none" stroke={st.color}
+        strokeWidth={clean?Math.min(4,st.w||2):st.w} strokeLinecap={clean?'round':st.hi&&st.inkStyle===2?'butt':'round'} strokeLinejoin="round"
+        opacity={clean?1:st.inkStyle===2?(st.hi?.28:1):(st.hi?.42:.95)}
+        style={!clean&&st.hi ? { mixBlendMode: "multiply" } : undefined}/>
+      {onSelect&&<path data-noprint="" d={d} fill="none" stroke="transparent" strokeWidth={Math.max(12,clean?4:st.w)} pointerEvents="stroke" style={{cursor:'pointer'}} onPointerDown={e=>{e.stopPropagation();onSelect(st.id);}}/>}
+    </g>;
+  };
   return (
     <g pointerEvents="none">
       {strokes.map((st, i) => draw(st, st.id || i))}
@@ -10260,7 +10319,7 @@ function TransitionAdder({ li, transitions, onAdd, onEdit, onDelete }) {
       <div style={{ fontSize: 11.5, fontWeight: 700, color: T.gold, fontFamily: FB }}>{t("transitionTitle")}</div>
       <div style={{ fontSize: 10.5, color: T.ink2, lineHeight: 1.5 }}>{t("transitionHelp")}</div>
       <div className="flex" style={{ gap: 6 }}>
-        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t("transitionName")} style={{ ...inputStyle, flex: 1 }} />
+        <input data-trans="" value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t("transitionName")} style={{ ...inputStyle, flex: 1 }} />
         <input value={fromYear} onChange={(e) => setFrom(e.target.value)} placeholder={t("transitionFrom")} style={{ ...inputStyle, width: 62, fontFamily: FM }} />
         <input value={toYear} onChange={(e) => setTo(e.target.value)} placeholder={t("transitionTo")} style={{ ...inputStyle, width: 62, fontFamily: FM }} />
         <Btn onClick={commit}>{editId ? t("save") : t("add")}</Btn>
