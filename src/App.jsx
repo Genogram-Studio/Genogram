@@ -7477,7 +7477,9 @@ export default function App() {
 function AppInner() {
   const [li, setLi] = useState(()=>{try{const i=langIndexOf(localStorage.getItem('gs:lang')||'');if(i>=0)return i;const n=Number(localStorage.getItem('gs:language')??1);return Number.isInteger(n)&&n>=0&&n<BASE_LANG_COUNT?n:1;}catch{return 1;}});
   useEffect(()=>{const L=LANGS[li]||LANGS[1];document.documentElement.lang=L.htmlLang;document.documentElement.dataset.ui=L.id;try{localStorage.setItem('gs:lang',L.id);localStorage.setItem('gs:language',li<BASE_LANG_COUNT?li:0);}catch{}},[li]);
-  const [screen, setScreen] = useState("home");
+  /* 주소로 바로 여는 화면: ?live=방코드(QR로 들어온 사람의 보기 화면) · ?lecture=1(강의 메모) */
+  const [liveRoom] = useState(() => { try { const v = new URLSearchParams(location.search).get("live"); return HAS_AI && v && /^[a-z0-9]{6}$/i.test(v) ? v.toLowerCase() : null; } catch { return null; } });
+  const [screen, setScreen] = useState(() => { if (liveRoom) return "liveview"; try { if (new URLSearchParams(location.search).get("lecture")) return "lecture"; } catch {} return "home"; });
   /* 도구 막대 접기 — 헤더의 버튼과 Editor 안의 도구 막대가 함께 쓰므로
      여기(공통 조상)에 둔다. */
   const [toolHidden, setToolHidden] = useState(false);
@@ -7774,7 +7776,7 @@ function AppInner() {
           <header className="gs-app-header" style={{ display: "flex", alignItems: "center", height: 54, padding: "0 14px",
             background: `linear-gradient(180deg, #2C4A6E 0%, ${T.pine} 100%)`, color: "#fff", gap: 12, flexShrink: 0,
             boxShadow: "0 1px 0 rgba(255,255,255,.08) inset, 0 2px 10px rgba(22,32,42,.14)" }}>
-            <button type="button" onClick={() => setScreen("home")}
+            <button type="button" onClick={() => { if (screen !== "liveview") setScreen("home"); }}
               style={{ display: "flex", alignItems: "center", gap: 9, background: "transparent", border: "none", cursor: "pointer", color: "#fff", padding: 0 }}>
               <Logo size={30} mono />
               <span style={{ fontFamily: FT, fontSize: 14, fontWeight: 700, letterSpacing: ".01em" }}>{t("app")}</span>
@@ -7827,7 +7829,7 @@ function AppInner() {
             {screen === "draw" && <TopChip onClick={() => setScreen("lecture")}>📝 {tr(["Lecture memo", "강의 메모", "講課筆記"], li)}</TopChip>}
             {/* 분석·자료 화면에서 그리던 가계도로 돌아가는 길.
                 없으면 홈을 거쳐야 해서 하던 작업이 끊긴다. */}
-            {screen !== "draw" && <TopChip onClick={() => setScreen("draw")}>← {t("m2")}</TopChip>}
+            {screen !== "draw" && screen !== "liveview" && <TopChip onClick={() => setScreen("draw")}>← {t("m2")}</TopChip>}
 
             <select value={li} onChange={(e) => setLi(+e.target.value)}
               style={{ background: "rgba(255,255,255,.10)", color: "#fff", border: "1px solid rgba(255,255,255,.22)",
@@ -7892,7 +7894,8 @@ function AppInner() {
           {screen === "export" && <ExportScreen doc={doc} setDoc={setDoc} li={li} exportJSON={exportJSON} flash={flash} onBackToDraw={() => setScreen("draw")} />}
             {screen === "analysis" && <AnalysisScreen doc={doc} setDoc={setDoc} li={li} onBackToDraw={() => setScreen("draw")} />}
           {screen === "ref" && <RefScreen li={li} />}
-          {screen === "lecture" && <LectureMemo li={li} storage={storage} translate={HAS_AI ? lectureTranslate : null} flash={flash} />}
+          {screen === "lecture" && <LectureMemo key="host" li={li} storage={storage} translate={HAS_AI ? lectureTranslate : null} liveApi={HAS_AI ? lectureLive : null} flash={flash} />}
+          {HAS_AI && screen === "liveview" && liveRoom && <LectureMemo key="viewer" role="viewer" room={liveRoom} li={li} storage={storage} liveApi={lectureLive} flash={flash} />}
         </div>
 
         <aside className="gs-language-dock" aria-label={tr(["Translation and interpretation", "번역·통역 고정칸", "翻譯與口譯"], li)} style={!(HAS_AI && screen === "draw" && langTab && langDocked) ? { display: "contents" } : undefined}>
@@ -8121,6 +8124,24 @@ async function translateLong(text, fromLabel, toLabel) {
 }
 /* 강의 메모의 번역 — 통역판에서만 쓴다(기본판 빌드에서는 HAS_AI가 거짓이라 통째로 빠진다) */
 const lectureTranslate = (text, fromLabel, toLabel) => translateLong(text, fromLabel, toLabel);
+/* 강의 메모 실시간 공유 — 방 열기만 접근 코드가 필요하고(aiFetch), 올리기·닫기는 방의 쓰기 열쇠로, 보기는 방 코드만으로 한다 */
+const LIVE_FN = "/.netlify/functions/lecture-live";
+const livePost = async (body, viaCode = false) => {
+  const init = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  const r = await (viaCode ? aiFetch(LIVE_FN, init) : fetch(LIVE_FN, init));
+  let data = {}; try { data = await r.json(); } catch {}
+  return { ...data, status: r.status, ok: r.ok && data.ok !== false };
+};
+const lectureLive = {
+  open: () => livePost({ action: "open" }, true),
+  push: (room, token, doc) => livePost({ action: "push", room, token, doc }),
+  close: (room, token) => livePost({ action: "close", room, token }),
+  poll: async (room, after) => {
+    const r = await fetch(`${LIVE_FN}?room=${encodeURIComponent(room)}&after=${after || 0}`, { cache: "no-store" });
+    if (!r.ok) throw new Error("poll " + r.status);
+    return r.json();
+  },
+};
 function setNativeValue(el, v) {
   const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   Object.getOwnPropertyDescriptor(proto, "value").set.call(el, v);
