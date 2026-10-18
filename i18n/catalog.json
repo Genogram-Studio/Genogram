@@ -1,6 +1,6 @@
 {
  "generatedFrom": "src/App.jsx",
- "count": 1108,
+ "count": 1109,
  "items": [
   {
    "en": "Genogram Studio",
@@ -9398,6 +9398,16 @@
    "zh": "口譯",
    "section": "AppInner",
    "words": 1,
+   "tier": 1,
+   "uses": 2,
+   "ambiguous": false
+  },
+  {
+   "en": "Lecture memo",
+   "ko": "강의 메모",
+   "zh": "講課筆記",
+   "section": "AppInner",
+   "words": 2,
    "tier": 1,
    "uses": 2,
    "ambiguous": false

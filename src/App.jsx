@@ -4,6 +4,7 @@ import { normalizeUnions } from "./unionCleanup.js";
 import { FONT_STEPS, stepFont, fitInkShape, shapePath, inkBounds, inkHit, findNoteSpace } from "./drawingTools.js";
 import React, { useState, useRef, useMemo, useEffect, useCallback, createContext, useContext } from "react";
 import { HAS_AI, EDITION, BUILD, FULL_URL } from "./edition.js";
+import LectureMemo from "./LectureMemo.jsx";
 import { LANGS, BASE_LANG_COUNT, packText, langIndexOf } from "./locales.js";   // 화면 언어 목록과 언어팩(locales/xx.json)
 import { GLOSSARY } from "../glossary/glossary.js";       // 기본 용어집(번역 띠 ⚙에서 볼 수 있다). 서버는 같은 원본의 사본(_glossary.js)을 쓴다.
 
@@ -7822,6 +7823,8 @@ function AppInner() {
               </div>
             )}
             {screen === "draw" && <TopChip onClick={() => setScreen("analysis")}>{t("m3")}</TopChip>}
+            {/* 강의 메모 — 강의 중 가계도 대신 강의안을 적을 때. 가계도 문서는 그대로 남는다. */}
+            {screen === "draw" && <TopChip onClick={() => setScreen("lecture")}>📝 {tr(["Lecture memo", "강의 메모", "講課筆記"], li)}</TopChip>}
             {/* 분석·자료 화면에서 그리던 가계도로 돌아가는 길.
                 없으면 홈을 거쳐야 해서 하던 작업이 끊긴다. */}
             {screen !== "draw" && <TopChip onClick={() => setScreen("draw")}>← {t("m2")}</TopChip>}
@@ -7889,6 +7892,7 @@ function AppInner() {
           {screen === "export" && <ExportScreen doc={doc} setDoc={setDoc} li={li} exportJSON={exportJSON} flash={flash} onBackToDraw={() => setScreen("draw")} />}
             {screen === "analysis" && <AnalysisScreen doc={doc} setDoc={setDoc} li={li} onBackToDraw={() => setScreen("draw")} />}
           {screen === "ref" && <RefScreen li={li} />}
+          {screen === "lecture" && <LectureMemo li={li} storage={storage} translate={HAS_AI ? lectureTranslate : null} flash={flash} />}
         </div>
 
         <aside className="gs-language-dock" aria-label={tr(["Translation and interpretation", "번역·통역 고정칸", "翻譯與口譯"], li)} style={!(HAS_AI && screen === "draw" && langTab && langDocked) ? { display: "contents" } : undefined}>
@@ -8115,6 +8119,8 @@ async function translateLong(text, fromLabel, toLabel) {
   for (const ch of chunks) { out.push(await gptTranslateStrict(ch, fromLabel, toLabel, prev, { use: "field" })); prev = ch.slice(-300); }
   return out.join("\n");
 }
+/* 강의 메모의 번역 — 통역판에서만 쓴다(기본판 빌드에서는 HAS_AI가 거짓이라 통째로 빠진다) */
+const lectureTranslate = (text, fromLabel, toLabel) => translateLong(text, fromLabel, toLabel);
 function setNativeValue(el, v) {
   const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   Object.getOwnPropertyDescriptor(proto, "value").set.call(el, v);
@@ -9162,7 +9168,8 @@ function Home({li,setLi,go,onNew,onOpenFile,cases,loadCase,storageOK,fileRef,onI
            작업하다 만 것이 있으면 여기서 바로 보이고 이어받을 수 있어야
            한다. */}
         <div className="gs-home-actions"><button className="gs-primary" onClick={onNew}>＋ {t('m2')}</button>
-          <button className="gs-secondary" onClick={onOpenFile}>{tr(['Open a case file','가계도 파일 열기','開啟個案檔案'],li)}</button></div>
+          <button className="gs-secondary" onClick={onOpenFile}>{tr(['Open a case file','가계도 파일 열기','開啟個案檔案'],li)}</button>
+          <button className="gs-secondary" onClick={()=>go('lecture')}>📝 {tr(['Lecture memo','강의 메모','講課筆記'],li)}</button></div>
       </div>
       <section className="gs-update-notice" aria-label={tr(["Update information", "업데이트 안내", "更新說明"], li)} style={{display:"flex",alignItems:"flex-start",gap:12,background:"#F8FBFF",border:"1px solid #C9DCEF",borderLeft:"4px solid #315D99",borderRadius:10,padding:"12px 15px",margin:"0 0 18px",color:"#284765"}}>
         <div style={{width:22,height:22,borderRadius:"50%",background:"#315D99",color:"#fff",display:"grid",placeItems:"center",fontWeight:700,flexShrink:0}}>i</div>
