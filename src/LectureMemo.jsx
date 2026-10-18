@@ -107,7 +107,7 @@ const IDX_KEY = "gs:lec:index", LAST_KEY = "gs:lec:last", DOC_KEY = (id) => `gs:
 const VIEW_OWN_KEY = (room) => `gs:lec:view:${room}`, VIEW_HOST_KEY = (room) => `gs:lec:viewhost:${room}`;
 const SHARE_KEY = "gs:lec:share";
 function loadViewerOwn(room) {
-  try { const v = localStorage.getItem(VIEW_OWN_KEY(room)); if (v) { const d = JSON.parse(v); return { ...normalizeMemo(d), savedId: d.savedId || null }; } } catch {}
+  try { const v = localStorage.getItem(VIEW_OWN_KEY(room)); if (v) { const d = JSON.parse(v); return { ...normalizeMemo(d), savedId: d.savedId || null, subNo: d.subNo || null }; } } catch {}
   return emptyMemo();
 }
 function loadViewerHost(room) {
@@ -117,7 +117,7 @@ function loadViewerHost(room) {
 /* 공유로 내보내는 내용 — 화면 상태(선택 등)는 빼고 그림과 번역만 */
 const publicDoc = (d) => ({
   title: d.title, show: d.show, links: d.links, ink: d.ink,
-  cards: d.cards.map(({ id, x, y, w, size, color, text, tr }) => ({ id, x, y, w, size, color, text, tr })),
+  cards: d.cards.map(({ id, x, y, w, size, color, text, tr, from }) => ({ id, x, y, w, size, color, text, tr, ...(from ? { from } : {}) })),
 });
 let SHARE = null;
 function downloadMemo(d) {
@@ -184,13 +184,21 @@ export default function LectureMemo({ li = 1, storage = null, translate = null, 
   const followRef = useRef(true); followRef.current = follow;
   const stopFollow = () => { if (viewer && followRef.current) setFollow(false); };
   const [savedId, setSavedId] = useState(() => (viewer ? loadViewerOwn(room).savedId || null : null));
+  /* 모두가 보낸 메모 — 보낸 사람 기기에만 있던 메모를 방 안의 모두가 함께 본다 */
+  const [subs, setSubs] = useState([]);
+  const svRef = useRef(0);
+  const [subsOpen, setSubsOpen] = useState(false);
+  const [peek, setPeek] = useState([]);                  // 화면에 겹쳐 보는 보낸 메모 번호들
+  const [mySubNo, setMySubNo] = useState(() => (viewer ? loadViewerOwn(room).subNo || null : null));
+  const takeSubs = (r) => { if (r && Number.isFinite(r.sv) && Array.isArray(r.subs) && r.sv > svRef.current) { svRef.current = r.sv; setSubs(r.subs); setPeek((p) => p.filter((no) => r.subs.some((x) => x.no === no))); } };
   useEffect(() => {
     if (!viewer || !liveApi || !room) return;
     let alive = true, ver = 0, timer = null, lastChange = Date.now(), first = true, state = "connecting";
     const tick = async () => {
       try {
-        const r = await liveApi.poll(room, ver);
+        const r = await liveApi.poll(room, ver, svRef.current);
         if (!alive) return;
+        takeSubs(r);
         if (r.gone) state = "gone";
         else if (r.closed) state = "closed";
         else {
@@ -215,9 +223,9 @@ export default function LectureMemo({ li = 1, storage = null, translate = null, 
   }, [viewer, room, liveApi]);
   useEffect(() => {
     if (!viewer || !room) return;
-    const t = setTimeout(() => { try { localStorage.setItem(VIEW_OWN_KEY(room), JSON.stringify({ ...doc, savedId })); } catch {} }, 500);
+    const t = setTimeout(() => { try { localStorage.setItem(VIEW_OWN_KEY(room), JSON.stringify({ ...doc, savedId, subNo: mySubNo })); } catch {} }, 500);
     return () => clearTimeout(t);
-  }, [doc, viewer, room, savedId]);
+  }, [doc, viewer, room, savedId, mySubNo]);
 
   /* ── 불러오기와 자동 저장 ─────────────────────────────── */
   useEffect(() => {
@@ -255,10 +263,15 @@ export default function LectureMemo({ li = 1, storage = null, translate = null, 
   }, [doc, storage, viewer]);
 
   /* 화면에 그릴 전체 — 보는 사람은 강사 메모(고칠 수 없음) 위에 자기 메모를 얹는다 */
-  const hostCards = useMemo(() => (viewer && host ? host.cards.map((c) => ({ ...c, ro: true })) : []), [viewer, host]);
+  /* 겹쳐 보는 보낸 메모 — 번호를 붙여 이름이 겹치지 않게 하고, 고칠 수 없게(ro) 한다 */
+  const peekSubs = useMemo(() => subs.filter((x) => peek.includes(x.no)), [subs, peek]);
+  const peekCards = useMemo(() => peekSubs.flatMap((x) => x.cards.map((c) => ({ ...c, id: `s${x.no}-${c.id}`, ro: true, peekNo: x.no }))), [peekSubs]);
+  const peekLinks = useMemo(() => peekSubs.flatMap((x) => x.links.map((l) => ({ ...l, id: `s${x.no}-${l.id}`, a: x.cards.some((c) => c.id === l.a) ? `s${x.no}-${l.a}` : l.a, b: x.cards.some((c) => c.id === l.b) ? `s${x.no}-${l.b}` : l.b }))), [peekSubs]);
+  const peekInk = useMemo(() => peekSubs.flatMap((x) => x.ink.map((st) => ({ ...st, id: `s${x.no}-${st.id}` }))), [peekSubs]);
+  const hostCards = useMemo(() => [...(viewer && host ? host.cards.map((c) => ({ ...c, ro: true })) : []), ...peekCards], [viewer, host, peekCards]);
   const allCards = useMemo(() => (hostCards.length ? [...hostCards, ...doc.cards] : doc.cards), [hostCards, doc.cards]);
-  const hostLinks = viewer && host ? host.links : [];
-  const hostInk = viewer && host ? host.ink : [];
+  const hostLinks = [...(viewer && host ? host.links : []), ...peekLinks];
+  const hostInk = [...(viewer && host ? host.ink : []), ...peekInk];
   const showSet = viewer ? (viewShow || host?.show || DEFAULT_SHOW) : doc.show;
 
   /* ── 좌표 ─────────────────────────────── */
@@ -663,6 +676,69 @@ export default function LectureMemo({ li = 1, storage = null, translate = null, 
   const [nowTick, setNowTick] = useState(0);
   useEffect(() => { if (!share) return; const t = setInterval(() => setNowTick((n) => n + 1), 5000); return () => clearInterval(t); }, [share]);
 
+  /* 강사도 공유하는 동안 보낸 메모를 받아 본다(3초마다) */
+  useEffect(() => {
+    if (viewer || !share || !liveApi) return;
+    let alive = true, timer = null;
+    const tick = async () => {
+      try { const r = await liveApi.poll(share.room, 1e12, svRef.current); if (alive) takeSubs(r); } catch {}
+      if (alive) timer = setTimeout(tick, document.hidden ? 8000 : 3000);
+    };
+    tick();
+    return () => { alive = false; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewer, share, liveApi]);
+  useEffect(() => { if (!share && !viewer) { setSubs([]); svRef.current = 0; setPeek([]); } }, [share, viewer]);
+  const subName = (x) => x.name || `${tx(["Anonymous", "익명", "匿名"])} ${x.no}`;
+
+  /* 보는 사람: 내 메모 보내기 — 가명은 안 써도 된다. 보낸 메모는 방 안의 모두가 본다 */
+  const [sendOpen, setSendOpen] = useState(false);
+  const [nick, setNick] = useState(() => { try { return localStorage.getItem("gs:lec:nick") || ""; } catch { return ""; } });
+  const [sending, setSending] = useState(false);
+  const cidOf = () => {
+    try {
+      let v = localStorage.getItem(`gs:lec:cid:${room}`);
+      if (!v) { v = (crypto.randomUUID ? crypto.randomUUID() : uid() + uid() + uid()); localStorage.setItem(`gs:lec:cid:${room}`, v); }
+      return v;
+    } catch { return (window.__lmCid ||= uid() + uid() + uid()); }
+  };
+  const sendMine = async () => {
+    if (editing) commitEdit();
+    if (!doc.cards.some((c) => c.text.trim()) && !doc.ink.length) { flash(tx(["Write a memo box or a pen note first.", "먼저 메모 상자나 필기를 적어 주세요.", "請先寫筆記框或手寫。"])); return; }
+    setSending(true);
+    try {
+      try { localStorage.setItem("gs:lec:nick", nick.trim()); } catch {}
+      const r = await liveApi.submit(room, cidOf(), nick.trim(), { cards: docRef.current.cards, links: docRef.current.links, ink: docRef.current.ink });
+      if (!r.ok) throw new Error(r.error || "send");
+      setMySubNo(r.no); setSendOpen(false); svRef.current = Math.min(svRef.current, r.sv - 1);
+      flash(tx(["Sent — everyone in this lecture can see it under 👥.", "보냈습니다 — 이 강의의 모두가 👥에서 볼 수 있습니다.", "已送出 — 此講課的所有人都能在 👥 看到。"]));
+    } catch (e) {
+      flash(String(e.message) === "closed" ? tx(["Sharing has ended; memos can no longer be sent.", "공유가 끝나 더 보낼 수 없습니다.", "分享已結束，無法再送出。"]) : tx(["Could not send. Please try again.", "보내지 못했습니다. 다시 해 주세요.", "無法送出，請再試一次。"]));
+    } finally { setSending(false); }
+  };
+  const unsendMine = async () => {
+    if (!window.confirm(tx(["Take back the memo you sent?", "보낸 메모를 거둘까요?", "要收回已送出的筆記嗎？"]))) return;
+    try { const r = await liveApi.unsubmit(room, cidOf()); if (r.ok) { setMySubNo(null); setSendOpen(false); } } catch {}
+  };
+  /* 강사: 보낸 메모를 내 메모로 가져오기(모두의 화면에 뜨고 번역도 붙는다) · 내리기 */
+  const importSub = (x) => {
+    const xs = [...doc.cards.map((c) => c.x + (sizes[c.id]?.w || c.w)), 0], ys = doc.cards.map((c) => c.y);
+    const minX = Math.min(...x.cards.map((c) => c.x), ...x.ink.flatMap((st) => st.pts.map((p) => p[0])), 0);
+    const minY = Math.min(...x.cards.map((c) => c.y), ...x.ink.flatMap((st) => st.pts.map((p) => p[1])), 0);
+    const dx = Math.max(...xs) + 60 - minX, dy = (ys.length ? Math.min(...ys) : 40) - minY;
+    const map = {};
+    const cards = x.cards.map((c) => { const id = uid(); map[c.id] = id; return { ...c, id, x: c.x + dx, y: c.y + dy, tr: {}, from: subName(x) }; });
+    const links = x.links.filter((l) => map[l.a] && map[l.b]).map((l) => ({ id: uid(), a: map[l.a], b: map[l.b] }));
+    const ink = x.ink.map((st) => ({ ...st, id: uid(), pts: st.pts.map((p) => [p[0] + dx, p[1] + dy, p[2]]) }));
+    apply((d) => ({ ...d, cards: [...d.cards, ...cards], links: [...d.links, ...links], ink: [...d.ink, ...ink] }));
+    setNeedFit(true);
+    flash(tx(["Added to your memo.", "내 메모에 가져왔습니다.", "已加入我的筆記。"]));
+  };
+  const removeSub = async (x) => {
+    if (!window.confirm(tx([`Remove ${subName(x)}’s memo for everyone?`, `${subName(x)}의 메모를 모두의 화면에서 내릴까요?`, `要從所有人的畫面移除 ${subName(x)} 的筆記嗎？`]))) return;
+    try { await liveApi.remove(share.room, share.token, x.no); svRef.current = 0; } catch {}
+  };
+
   /* ── 보는 사람: 내 메모로 저장 ─────────────────────────────── */
   const mergedForViewer = () => {
     const h = host || emptyMemo();
@@ -747,12 +823,21 @@ export default function LectureMemo({ li = 1, storage = null, translate = null, 
               {savedId && <button type="button" style={S.tool} onClick={() => { location.href = `${location.pathname}?lecture=1`; }}>📂<span className="lm-tool-label">{tx(["My memos", "내 메모 목록", "我的筆記"])}</span></button>}
             </div>
           )}
+          {viewer && liveState !== "gone" && (
+            <div style={S.group}>
+              <button type="button" style={{ ...S.tool, ...(mySubNo ? { color: "#1F7A45", fontWeight: 700 } : null) }} onClick={() => setSendOpen(true)} disabled={liveState === "closed"}>📤 <span>{mySubNo ? tx(["Sent", "보냄", "已送出"]) : tx(["Send", "보내기", "送出"])}</span></button>
+              <button type="button" aria-pressed={subsOpen} style={{ ...S.tool, ...(subsOpen ? S.toolOn : null) }} onClick={() => setSubsOpen((v) => !v)}>👥 <span>{subs.length}</span></button>
+            </div>
+          )}
           {!viewer && liveApi && (
             <div style={S.group}>
               {share ? (
                 <button type="button" style={{ ...S.tool, color: "#1F7A45", fontWeight: 700 }} onClick={() => setShareOpen(true)} title={tx(["Live sharing", "실시간 공유", "即時分享"])}>
                   <span style={{ ...S.liveDot, background: shareStatus.error ? C.red : "#2E9D5B" }} />📡 {share.room.toUpperCase()}
                 </button>
+              ) : null}
+              {share ? (
+                <button type="button" aria-pressed={subsOpen} style={{ ...S.tool, ...(subsOpen ? S.toolOn : null) }} onClick={() => setSubsOpen((v) => !v)} title={tx(["Memos sent by viewers", "보는 사람들이 보낸 메모", "觀看者送出的筆記"])}>👥 <span>{subs.length}</span></button>
               ) : (
                 <button type="button" style={S.tool} onClick={startShare} title={tx(["Show this memo live on other screens via QR", "QR로 다른 화면에 실시간으로 보여 주기", "以 QR 碼在其他畫面即時顯示"])}>📡<span className="lm-tool-label">{tx(["Live share", "실시간 공유", "即時分享"])}</span></button>
               )}
@@ -848,7 +933,7 @@ export default function LectureMemo({ li = 1, storage = null, translate = null, 
             return (
               <div key={c.id} data-card-id={c.id} ref={(el) => { if (el) cardEls.current[c.id] = el; else delete cardEls.current[c.id]; }}
                 className="lm-card"
-                style={{ ...S.card, left: c.x, top: c.y, width: c.w, borderLeftColor: c.color, ...(c.ro ? { cursor: mode === "connect" ? "pointer" : "default", background: "#FBFCFE" } : null),
+                style={{ ...S.card, left: c.x, top: c.y, width: c.w, borderLeftColor: c.color, ...(c.ro ? { cursor: mode === "connect" ? "pointer" : "default", background: "#FBFCFE" } : null), ...(c.peekNo ? { borderStyle: "dashed", borderColor: C.gold, borderLeftStyle: "solid", background: "#FFFDF7" } : null),
                   outline: pendingLink === c.id ? `2.5px dashed ${C.gold}` : isSel ? `2px solid ${C.pine2}` : "none", outlineOffset: 2 }}
                 onDoubleClick={() => { if (!inkMode && !c.ro) editCard(c); }}>
                 {isEdit ? (
@@ -858,7 +943,10 @@ export default function LectureMemo({ li = 1, storage = null, translate = null, 
                     onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); commitEdit(); } if (e.key === "Escape") { e.preventDefault(); commitEdit(); } }}
                     style={{ ...S.textarea, fontSize: c.size, color: c.color }} />
                 ) : (
-                  <div style={{ fontSize: c.size, fontWeight: 600, color: c.color, whiteSpace: "pre-wrap", lineHeight: 1.4, wordBreak: "break-word" }}>{c.text}</div>
+                  <>
+                    {(c.peekNo || c.from) && <div style={S.fromTag}>✎ {c.peekNo ? subName(subs.find((x) => x.no === c.peekNo) || { no: c.peekNo }) : c.from}</div>}
+                    <div style={{ fontSize: c.size, fontWeight: 600, color: c.color, whiteSpace: "pre-wrap", lineHeight: 1.4, wordBreak: "break-word" }}>{c.text}</div>
+                  </>
                 )}
                 {isEdit && (
                   <div data-lm-ui="" style={{ display: "flex", gap: 6, marginTop: 6, justifyContent: "flex-end" }}>
@@ -943,6 +1031,58 @@ export default function LectureMemo({ li = 1, storage = null, translate = null, 
         )}
       </div>
 
+      {subsOpen && !present && (viewer || share) && (
+        <div style={S.subsPanel}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+            <strong style={{ color: C.ink }}>👥 {tx(["Everyone’s memos", "모두의 메모", "大家的筆記"])} · {subs.length}</strong>
+            <div style={{ display: "flex", gap: 4 }}>
+              {subs.length > 0 && <button type="button" style={S.small} onClick={() => setPeek(peek.length === subs.length ? [] : subs.map((x) => x.no))}>{peek.length === subs.length ? tx(["Hide all", "모두 감추기", "全部隱藏"]) : tx(["Overlay all", "모두 겹쳐 보기", "全部疊加"])}</button>}
+              <button type="button" style={S.small} onClick={() => setSubsOpen(false)}>✕</button>
+            </div>
+          </div>
+          <div style={{ fontSize: 11.5, color: C.mute, lineHeight: 1.5, marginBottom: 8 }}>
+            {viewer ? tx(["Memos people chose to send. Tap 👁 to lay one over the lecture.", "사람들이 보낸 메모입니다. 👁을 누르면 강의 화면 위에 겹쳐 봅니다.", "大家送出的筆記。點 👁 可疊加在講課畫面上。"])
+              : tx(["Tap 👁 to lay a memo over yours, ⤵ to bring it into your memo (shown to everyone, with translation).", "👁은 겹쳐 보기, ⤵는 내 메모로 가져오기입니다(모두의 화면에 뜨고 번역도 붙습니다).", "👁 疊加檢視，⤵ 帶入我的筆記（所有人可見並附翻譯）。"])}
+          </div>
+          <div style={{ display: "grid", gap: 8, overflow: "auto", flex: 1, minHeight: 0, alignContent: "start" }}>
+            {subs.length ? subs.map((x) => (
+              <div key={x.no} style={{ ...S.memoRow, alignItems: "flex-start", flexDirection: "column", gap: 6, ...(peek.includes(x.no) ? { borderColor: C.gold, background: C.goldSoft } : null) }}>
+                <div style={{ display: "flex", width: "100%", alignItems: "center", gap: 6 }}>
+                  <strong style={{ fontSize: 13, color: C.ink, flex: 1 }}>{subName(x)}{viewer && mySubNo === x.no ? ` (${tx(["me", "나", "我"])})` : ""}</strong>
+                  <span style={{ fontSize: 10.5, color: C.mute }}>{new Date(x.at).toTimeString().slice(0, 5)}</span>
+                  <button type="button" aria-pressed={peek.includes(x.no)} style={{ ...S.small, ...(peek.includes(x.no) ? { background: C.gold, color: "#fff", borderColor: C.gold } : null) }}
+                    onClick={() => { setPeek((p) => (p.includes(x.no) ? p.filter((n) => n !== x.no) : [...p, x.no])); setNeedFit(true); }}>👁</button>
+                  {!viewer && <button type="button" style={S.small} title={tx(["Bring into my memo", "내 메모로 가져오기", "帶入我的筆記"])} onClick={() => importSub(x)}>⤵</button>}
+                  {!viewer && <button type="button" style={{ ...S.small, color: C.red }} title={tx(["Remove", "내리기", "移除"])} onClick={() => removeSub(x)}>🗑</button>}
+                </div>
+                {x.cards.slice(0, 5).map((c) => <div key={c.id} style={{ fontSize: 12.5, color: c.color || C.ink2, whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.45, borderLeft: `3px solid ${c.color || C.sage}`, paddingLeft: 7 }}>{c.text}</div>)}
+                {(x.cards.length > 5 || x.ink.length > 0) && <div style={{ fontSize: 11, color: C.mute }}>{x.cards.length > 5 ? `+${x.cards.length - 5} ` : ""}{x.ink.length ? `✎ ${tx(["pen", "필기", "手寫"])} ${x.ink.length}` : ""}</div>}
+              </div>
+            )) : <div style={{ fontSize: 12.5, color: C.mute }}>{tx(["No memos sent yet.", "아직 보낸 메모가 없습니다.", "尚無送出的筆記。"])}</div>}
+          </div>
+        </div>
+      )}
+
+      {sendOpen && viewer && (
+        <div style={S.modalBack} onClick={() => setSendOpen(false)}>
+          <div style={S.modal} onClick={(e) => e.stopPropagation()}>
+            <strong style={{ fontSize: 16, color: C.ink }}>📤 {mySubNo ? tx(["Update the memo you sent", "보낸 메모 바꾸기", "更新已送出的筆記"]) : tx(["Send my memo", "내 메모 보내기", "送出我的筆記"])}</strong>
+            <div style={{ fontSize: 12.5, color: C.mute, lineHeight: 1.55, margin: "8px 0 12px" }}>
+              {tx(["Your memo boxes and pen notes go to the lecture. Everyone in this lecture can see what you send.", "내가 쓴 메모 상자와 필기를 강의로 보냅니다. 보낸 메모는 이 강의에 들어온 모든 사람이 볼 수 있습니다.", "你的筆記框與手寫會送到講課中，此講課的所有人都能看到。"])}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.ink2, marginBottom: 5 }}>{tx(["Nickname (optional)", "가명 (안 써도 됩니다)", "暱稱（可不填）"])}</div>
+            <input value={nick} maxLength={24} onChange={(e) => setNick(e.target.value)} placeholder={tx(["Leave blank to stay anonymous", "비워 두면 ‘익명’으로 보입니다", "留空則顯示為「匿名」"])} style={{ ...S.title, width: "100%", marginBottom: 14 }} />
+            <div style={{ display: "flex", gap: 8, justifyContent: "space-between", flexWrap: "wrap" }}>
+              {mySubNo ? <button type="button" style={{ ...S.small, color: C.red }} onClick={unsendMine}>{tx(["Take back", "보낸 메모 거두기", "收回"])}</button> : <span />}
+              <div style={{ display: "flex", gap: 6 }}>
+                <button type="button" style={S.small} onClick={() => setSendOpen(false)}>{tx(["Cancel", "취소", "取消"])}</button>
+                <button type="button" disabled={sending} style={{ ...S.small, background: C.pine, color: "#fff", borderColor: C.pine }} onClick={sendMine}>{sending ? "…" : mySubNo ? tx(["Send again", "다시 보내기", "再次送出"]) : tx(["Send", "보내기", "送出"])}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {shareOpen && share && (
         <div style={S.modalBack} onClick={() => setShareOpen(false)}>
           <div style={S.modal} onClick={(e) => e.stopPropagation()}>
@@ -1008,6 +1148,8 @@ export default function LectureMemo({ li = 1, storage = null, translate = null, 
 
 const SVG_HALF = 20000;
 const S = {
+  subsPanel: { position: "absolute", right: 10, top: 64, bottom: 10, width: 330, maxWidth: "calc(100% - 20px)", background: "#fff", border: `1px solid ${C.rule}`, borderRadius: 12, boxShadow: "0 12px 30px rgba(22,32,42,.22)", padding: 12, zIndex: 20, display: "flex", flexDirection: "column" },
+  fromTag: { fontSize: 10.5, fontWeight: 700, color: C.gold, marginBottom: 3 },
   liveDot: { display: "inline-block", width: 9, height: 9, borderRadius: "50%", margin: "0 4px 0 6px", flexShrink: 0 },
   modalBack: { position: "absolute", inset: 0, background: "rgba(20,36,58,.35)", zIndex: 30, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 },
   modal: { background: "#fff", borderRadius: 14, padding: 18, width: 380, maxWidth: "100%", maxHeight: "100%", overflow: "auto", boxShadow: "0 18px 40px rgba(20,36,58,.3)" },

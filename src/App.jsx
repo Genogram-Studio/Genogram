@@ -8136,8 +8136,11 @@ const lectureLive = {
   open: () => livePost({ action: "open" }, true),
   push: (room, token, doc) => livePost({ action: "push", room, token, doc }),
   close: (room, token) => livePost({ action: "close", room, token }),
-  poll: async (room, after) => {
-    const r = await fetch(`${LIVE_FN}?room=${encodeURIComponent(room)}&after=${after || 0}`, { cache: "no-store" });
+  submit: (room, cid, name, doc) => livePost({ action: "submit", room, cid, name, doc }),
+  unsubmit: (room, cid) => livePost({ action: "unsubmit", room, cid }),
+  remove: (room, token, no) => livePost({ action: "remove", room, token, no }),
+  poll: async (room, after, sa) => {
+    const r = await fetch(`${LIVE_FN}?room=${encodeURIComponent(room)}&after=${after || 0}${sa == null ? "" : `&sa=${sa}`}`, { cache: "no-store" });
     if (!r.ok) throw new Error("poll " + r.status);
     return r.json();
   },
