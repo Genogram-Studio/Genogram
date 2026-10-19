@@ -190,7 +190,19 @@ export default function LectureMemo({ li = 1, storage = null, translate = null, 
   const [subsOpen, setSubsOpen] = useState(false);
   const [peek, setPeek] = useState([]);                  // 화면에 겹쳐 보는 보낸 메모 번호들
   const [mySubNo, setMySubNo] = useState(() => (viewer ? loadViewerOwn(room).subNo || null : null));
-  const takeSubs = (r) => { if (r && Number.isFinite(r.sv) && Array.isArray(r.subs) && r.sv > svRef.current) { svRef.current = r.sv; setSubs(r.subs); setPeek((p) => p.filter((no) => r.subs.some((x) => x.no === no))); } };
+  const mySubNoRef = useRef(mySubNo); mySubNoRef.current = mySubNo;
+  /* 새로 오거나 바뀐 보낸 메모는 바로 화면에 겹쳐 보인다(👥에서 👁으로 끌 수 있다) */
+  const seenSubs = useRef(new Map());
+  const takeSubs = (r) => {
+    if (!(r && Number.isFinite(r.sv) && Array.isArray(r.subs) && r.sv > svRef.current)) return;
+    svRef.current = r.sv;
+    const fresh = r.subs.filter((x) => seenSubs.current.get(x.no) !== x.at);
+    seenSubs.current = new Map(r.subs.map((x) => [x.no, x.at]));
+    setSubs(r.subs);
+    const others = fresh.filter((x) => !(viewer && x.no === mySubNoRef.current));   // 내가 보낸 것은 이미 내 화면에 있다
+    setPeek((p) => [...p.filter((no) => r.subs.some((x) => x.no === no)), ...others.map((x) => x.no).filter((no) => !p.includes(no))]);
+    if (others.length) flash(`👥 ${tx(["New memo", "새 메모", "新筆記"])}: ${others.map((x) => x.name || `${tx(["Anonymous", "익명", "匿名"])} ${x.no}`).join(", ")}`);
+  };
   useEffect(() => {
     if (!viewer || !liveApi || !room) return;
     let alive = true, ver = 0, timer = null, lastChange = Date.now(), first = true, state = "connecting";
@@ -929,7 +941,7 @@ export default function LectureMemo({ li = 1, storage = null, translate = null, 
 
           {cardsToDraw.map((c) => {
             const isSel = sel?.kind === "card" && sel.id === c.id, isEdit = editing?.id === c.id;
-            const lines = (translate || c.ro) && c.text.trim() && !isEdit ? targetsOf(c) : [];
+            const lines = (translate || c.ro) && c.text.trim() && !isEdit ? targetsOf(c).filter((lang) => !c.ro || c.tr?.[lang]?.text) : [];
             return (
               <div key={c.id} data-card-id={c.id} ref={(el) => { if (el) cardEls.current[c.id] = el; else delete cardEls.current[c.id]; }}
                 className="lm-card"
