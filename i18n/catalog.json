@@ -1,6 +1,6 @@
 {
  "generatedFrom": "src/App.jsx",
- "count": 1109,
+ "count": 1118,
  "items": [
   {
    "en": "Genogram Studio",
@@ -9369,6 +9369,36 @@
    "section": "AppInner",
    "words": 5,
    "tier": 1,
+   "uses": 2,
+   "ambiguous": false
+  },
+  {
+   "en": "Permission to open the file was not given.",
+   "ko": "파일을 열 권한을 받지 못했습니다.",
+   "zh": "未取得開啟檔案的權限。",
+   "section": "AppInner",
+   "words": 8,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "No genogram files in that folder.",
+   "ko": "그 폴더에는 가계도 파일이 없습니다.",
+   "zh": "該資料夾中沒有家系圖檔案。",
+   "section": "AppInner",
+   "words": 6,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Could not read the folder.",
+   "ko": "폴더를 읽지 못했습니다.",
+   "zh": "無法讀取資料夾。",
+   "section": "AppInner",
+   "words": 5,
+   "tier": 1,
    "uses": 1,
    "ambiguous": false
   },
@@ -10578,6 +10608,66 @@
    "zh": "匯出",
    "section": "Home",
    "words": 1,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Recent files",
+   "ko": "최근에 연 파일",
+   "zh": "最近開啟的檔案",
+   "section": "RecentFiles",
+   "words": 2,
+   "tier": 1,
+   "uses": 2,
+   "ambiguous": false
+  },
+  {
+   "en": "Add a folder of genograms",
+   "ko": "가계도 폴더 불러오기",
+   "zh": "加入家系圖資料夾",
+   "section": "RecentFiles",
+   "words": 5,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Remove from list",
+   "ko": "목록에서 빼기",
+   "zh": "從清單移除",
+   "section": "RecentFiles",
+   "words": 3,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Remove from list (the file stays)",
+   "ko": "목록에서 빼기 (파일은 그대로)",
+   "zh": "從清單移除（檔案保留）",
+   "section": "RecentFiles",
+   "words": 6,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Show fewer",
+   "ko": "접기",
+   "zh": "收合",
+   "section": "RecentFiles",
+   "words": 2,
+   "tier": 1,
+   "uses": 1,
+   "ambiguous": false
+  },
+  {
+   "en": "Only the file location is remembered on this computer; the file itself stays where it is.",
+   "ko": "이 컴퓨터에는 파일 위치만 기억합니다. 파일은 원래 자리에 그대로 있습니다.",
+   "zh": "此電腦只記住檔案位置，檔案本身留在原處。",
+   "section": "RecentFiles",
+   "words": 16,
    "tier": 1,
    "uses": 1,
    "ambiguous": false

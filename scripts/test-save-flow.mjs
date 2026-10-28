@@ -11,7 +11,7 @@ const ctx={doc:{title:'Case',people:[]},cases:[],Blob,currentTargetRef:{current:
   storage:{set:async(k,v)=>records.set(k,v)},setCases:c=>{ctx.cases=c;},writeCaseHandle:async(h,b)=>writes.push({h,text:await b.text()}),
   window:{confirm:m=>{confirms.push(m);return ctx.accept;},alert:m=>alerts.push(m),showSaveFilePicker:async()=>{picks++;return handle;}},
   accept:false,download:()=>{},setFileMenuOpen:()=>{},setSaveAsMode:()=>{},setExitAfterSave:()=>{},
-  setSaveDlg:v=>{dialog=v;},setScreen:v=>{exitScreen=v;},cleanRef:{current:''}};
+  setSaveDlg:v=>{dialog=v;},setScreen:v=>{exitScreen=v;},cleanRef:{current:''},rfPut:()=>{}};
 vm.createContext(ctx);vm.runInContext(source.slice(start,end)+'\nthis.save=saveCase;this.request=requestSave;this.exit=exitCase;',ctx);
 assert.equal(await ctx.request(),'cancelled');assert.equal(writes.length,0);
 ctx.accept=true;assert.equal(await ctx.request(),'saved');assert.equal(writes.length,1);assert.equal(picks,0);
