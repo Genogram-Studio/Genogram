@@ -5578,6 +5578,71 @@ async function saveAs(blob, suggestedName, mimeType, extLabel) {
   download(blob, suggestedName);
   return "downloaded";
 }
+/* ── 최근에 연 파일 ─────────────────────────────────────────────────
+   '파일로' 저장하거나 연 가계도는 브라우저 저장 목록에 나오지 않아서, 어디에 두었는지 잊으면
+   사라진 것처럼 보였다. Chrome은 파일 손잡이(FileSystemFileHandle)를 IndexedDB에 보관할 수 있으므로
+   여기에 최근 파일을 기억해 두고 첫 화면에서 바로 다시 연다. 파일 내용은 저장하지 않는다(위치만).
+   다시 열 때 Chrome이 '이 파일을 열어도 될까요?'를 한 번 묻는다. */
+const RF_DB = "gs-recent-files", RF_STORE = "files", RF_MAX = 60;
+const recentFilesSupported = () => typeof window !== "undefined" && typeof window.showOpenFilePicker === "function" && typeof indexedDB !== "undefined";
+function rfDb() {
+  return new Promise((res, rej) => {
+    try {
+      const r = indexedDB.open(RF_DB, 1);
+      r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains(RF_STORE)) r.result.createObjectStore(RF_STORE, { keyPath: "id" }); };
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    } catch (e) { rej(e); }
+  });
+}
+async function rfAll() {
+  try {
+    const db = await rfDb();
+    return await new Promise((res) => { const q = db.transaction(RF_STORE).objectStore(RF_STORE).getAll(); q.onsuccess = () => res((q.result || []).sort((a, b) => b.at - a.at)); q.onerror = () => res([]); });
+  } catch { return []; }
+}
+const rfTx = async (fn) => { const db = await rfDb(); await new Promise((res, rej) => { const t = db.transaction(RF_STORE, "readwrite"); fn(t.objectStore(RF_STORE)); t.oncomplete = res; t.onerror = () => rej(t.error); }); };
+const rfNotify = () => { try { window.dispatchEvent(new Event("gs-recent-files")); } catch {} };
+/* items: [{handle, doc}] — 같은 파일이면 새로 쌓지 않고 날짜만 바꾼다 */
+async function rfPutMany(items, opts = {}) {
+  if (!recentFilesSupported() || !items.length) return;
+  try {
+    const all = await rfAll(), now = Date.now(), recs = [];
+    for (const [i, { handle, doc }] of items.entries()) {
+      let same = null;
+      for (const x of all) { try { if (x.handle && (await x.handle.isSameEntry(handle))) { same = x; break; } } catch {} }
+      recs.push({ id: same?.id || uid(), name: handle.name, title: doc?.title || "", people: (doc?.people || []).length,
+        at: opts.keepDate && same ? same.at : (opts.at ?? now) - i, folder: opts.folder || same?.folder || "", handle });
+    }
+    const keep = new Set(recs.map((r) => r.id));
+    const extra = all.filter((x) => !keep.has(x.id)).slice(Math.max(0, RF_MAX - recs.length));
+    await rfTx((st) => { recs.forEach((r) => st.put(r)); extra.forEach((x) => st.delete(x.id)); });
+  } catch (e) { console.warn("recent files", e); }
+  rfNotify();
+}
+const rfPut = (handle, doc) => rfPutMany([{ handle, doc }]);
+async function rfDel(id) { try { await rfTx((st) => st.delete(id)); } catch {} rfNotify(); }
+function useRecentFiles() {
+  const [list, setList] = useState([]);
+  useEffect(() => {
+    if (!recentFilesSupported()) return;
+    let alive = true;
+    const load = () => rfAll().then((l) => { if (alive) setList(l); });
+    load(); window.addEventListener("gs-recent-files", load);
+    return () => { alive = false; window.removeEventListener("gs-recent-files", load); };
+  }, []);
+  return list;
+}
+/* 파일 손잡이로 읽기 — 고칠 권한까지 받으면 그 파일에 바로 덮어 저장할 수 있다 */
+async function readRecentHandle(handle) {
+  let mode = "readwrite";
+  let p = await handle.queryPermission?.({ mode });
+  if (p !== "granted") p = await handle.requestPermission?.({ mode });
+  if (p !== "granted") { mode = "read"; p = await handle.queryPermission?.({ mode }); if (p !== "granted") p = await handle.requestPermission?.({ mode }); }
+  if (p !== "granted") { const e = new Error("permission"); e.name = "NotAllowedError"; throw e; }
+  const file = await handle.getFile();
+  return { doc: JSON.parse(await file.text()), writable: mode === "readwrite" };
+}
+
 async function writeCaseHandle(handle,blob){
   const writable=await handle.createWritable();
   try {await writable.write(blob);await writable.close();}
@@ -7657,7 +7722,7 @@ function AppInner() {
           const handle=await window.showSaveFilePicker({suggestedName:filename,
             types:[{description:'Genogram data (JSON)',accept:{'application/json':['.json']}}]});
           await writeCaseHandle(handle,blob);
-          currentTargetRef.current={kind:'file',handle};patchDoc(withTitle);flash(t('saved'));return 'saved';
+          currentTargetRef.current={kind:'file',handle};patchDoc(withTitle);flash(t('saved'));rfPut(handle,withTitle);return 'saved';
         }
         download(blob,filename);
         currentTargetRef.current={kind:'unwritable-file',name:filename};patchDoc(withTitle);
@@ -7699,7 +7764,7 @@ function AppInner() {
         try{
           const blob=new Blob([JSON.stringify(doc,null,2)],{type:'application/json'});
           await writeCaseHandle(target.handle,blob);
-          patchDoc(doc);flash(t('saved'));result='saved';
+          patchDoc(doc);flash(t('saved'));result='saved';rfPut(target.handle,doc);
         }catch{flash(tr(['Could not overwrite the file.','파일을 덮어쓰지 못했습니다.','無法覆寫檔案。'],li));}
       }else result=await saveCase(doc.title,'device');
       if(exit&&result==='saved')setScreen('home');
@@ -7763,8 +7828,39 @@ function AppInner() {
       if(!handle)return;
       const file=await handle.getFile(),loaded=withDefaults(JSON.parse(await file.text()));
       await keepUnsaved();resetDoc(loaded);currentTargetRef.current={kind:'file',handle};
-      setScreen('draw');flash(t('open'));
+      setScreen('draw');flash(t('open'));rfPut(handle,loaded);
     }catch(e){if(e?.name!=='AbortError')flash(tr(['Could not open the file.','파일을 열지 못했습니다.','無法開啟檔案。'],li));}
+  };
+  const recentFiles = useRecentFiles();
+  const openRecent = async (rec) => {
+    try {
+      const { doc: raw, writable } = await readRecentHandle(rec.handle);
+      const loaded = withDefaults(raw);
+      await keepUnsaved(); resetDoc(loaded);
+      currentTargetRef.current = writable ? { kind: 'file', handle: rec.handle } : { kind: 'unwritable-file', name: rec.name };
+      setScreen('draw'); flash(t('open')); rfPut(rec.handle, loaded);
+    } catch (e) {
+      if (e?.name === 'NotFoundError') {
+        if (window.confirm(tr([`“${rec.name}” is no longer there (moved, renamed or deleted). Remove it from the list?`, `“${rec.name}” 파일이 그 자리에 없습니다(옮겼거나 이름을 바꿨거나 지웠습니다). 목록에서 뺄까요?`, `「${rec.name}」已不在原處（已移動、重新命名或刪除）。要從清單移除嗎？`], li))) rfDel(rec.id);
+      } else if (e?.name === 'NotAllowedError') flash(tr(['Permission to open the file was not given.', '파일을 열 권한을 받지 못했습니다.', '未取得開啟檔案的權限。'], li));
+      else flash(tr(['Could not open the file.', '파일을 열지 못했습니다.', '無法開啟檔案。'], li));
+    }
+  };
+  /* 가계도 파일이 모여 있는 폴더를 한 번 고르면 그 안의 .genogram.json을 모두 목록에 올린다 */
+  const linkFolder = async () => {
+    if (typeof window.showDirectoryPicker !== 'function') return;
+    try {
+      const dir = await window.showDirectoryPicker({ id: 'genogram-cases', mode: 'readwrite' });
+      const found = [];
+      for await (const [name, h] of dir.entries()) {
+        if (h.kind !== 'file' || !/\.json$/i.test(name)) continue;
+        try { const f = await h.getFile(); const d = JSON.parse(await f.text()); if (Array.isArray(d?.people)) found.push({ handle: h, doc: d, mtime: f.lastModified }); } catch {}
+      }
+      found.sort((a, b) => a.mtime - b.mtime);
+      for (const x of found) await rfPutMany([{ handle: x.handle, doc: x.doc }], { at: x.mtime, folder: dir.name, keepDate: true });
+      flash(found.length ? tr([`Added ${found.length} genogram files from “${dir.name}”.`, `“${dir.name}” 폴더에서 가계도 파일 ${found.length}개를 목록에 올렸습니다.`, `已從「${dir.name}」加入 ${found.length} 個家系圖檔案。`], li)
+        : tr(['No genogram files in that folder.', '그 폴더에는 가계도 파일이 없습니다.', '該資料夾中沒有家系圖檔案。'], li));
+    } catch (e) { if (e?.name !== 'AbortError') flash(tr(['Could not read the folder.', '폴더를 읽지 못했습니다.', '無法讀取資料夾。'], li)); }
   };
 
   return (
@@ -7878,6 +7974,7 @@ function AppInner() {
           {screen === "home" && <Home li={li} setLi={setLi} go={setScreen}
             onNew={async () => { await keepUnsaved(); resetDoc(emptyDoc()); setScreen("draw"); }}
             onOpenFile={openCaseFile} fileRef={fileRef} onImport={importJSON} cases={cases} loadCase={loadCase} storageOK={storageOK}
+            recentFiles={recentFiles} onOpenRecent={openRecent} onForgetRecent={rfDel} onLinkFolder={linkFolder}
             /* 새로고침 없이 '홈'으로 돌아온 경우, doc은 이미 이번 세션에서
                그리던 내용을 그대로 들고 있다. 그때는 storage에서 다시
                읽어 온 draft(재시작 이후용)가 아니라, 지금 메모리에 있는
@@ -9179,7 +9276,7 @@ function CoverGenogram() {
     </svg>
   );
 }
-function Home({li,setLi,go,onNew,onOpenFile,cases,loadCase,storageOK,fileRef,onImport,draft,resumeDraft,dropDraft,autosaveOn,setAutosave,deleteAllOnDevice}) {
+function Home({li,setLi,go,onNew,onOpenFile,cases,loadCase,storageOK,fileRef,onImport,draft,resumeDraft,dropDraft,autosaveOn,setAutosave,deleteAllOnDevice,recentFiles=[],onOpenRecent,onForgetRecent,onLinkFolder}) {
   const t=k=>tr(S[k],li);
   return <div className="gs-home gs-cover">
     <header className="gs-home-header"><div className="gs-brand"><Logo size={34}/><strong>Genogram Studio</strong></div>
@@ -9223,6 +9320,7 @@ function Home({li,setLi,go,onNew,onOpenFile,cases,loadCase,storageOK,fileRef,onI
           </button>
         </div>
       )}
+      {recentFilesSupported()&&<RecentFiles li={li} list={recentFiles} onOpen={onOpenRecent} onForget={onForgetRecent} onLinkFolder={onLinkFolder}/>}
       <details className="gs-cover-cases"><summary>{tr(['Saved cases','저장한 가계도','已儲存個案'],li)} <span>{cases.length}</span></summary><div className="gs-home-grid">
         <section className="gs-recent"><div className="gs-section-heading"><h2>{tr(['Recent cases','최근 가계도','近期個案'],li)}</h2><span>{cases.length}</span></div>
           {storageOK&&cases.length?cases.slice(0,6).map(c=><button className="gs-case" key={c.id} onClick={()=>{loadCase(c.id);go('draw');}}><span className="gs-case-symbol">▢</span><span><strong>{c.title||'—'}</strong><small>{(c.savedAt||'').slice(0,10)}</small></span><span aria-hidden="true">→</span></button>):
@@ -9236,6 +9334,39 @@ function Home({li,setLi,go,onNew,onOpenFile,cases,loadCase,storageOK,fileRef,onI
   </div>;
 }
 
+
+/* 첫 화면의 '최근에 연 파일' — 파일로 저장하거나 연 가계도를 한 번에 다시 연다 */
+function RecentFiles({ li, list, onOpen, onForget, onLinkFolder }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? list : list.slice(0, 8);
+  const strip = (n) => String(n || "").replace(/\.genogram\.json$/i, "").replace(/\.json$/i, "");
+  const when = (ms) => { try { return new Date(ms).toLocaleDateString(LANGS[li]?.htmlLang || undefined, { month: "short", day: "numeric" }); } catch { return ""; } };
+  return <section aria-label={tr(["Recent files", "최근에 연 파일", "最近開啟的檔案"], li)} style={{ margin: "0 0 18px", background: "#fff", border: "1px solid #D5E0EC", borderRadius: 12, padding: "14px 16px" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: list.length ? 10 : 4 }}>
+      <strong style={{ fontSize: 14, color: T.ink, flex: 1 }}>📄 {tr(["Recent files", "최근에 연 파일", "最近開啟的檔案"], li)} <span style={{ color: T.mute, fontWeight: 500 }}>{list.length || ""}</span></strong>
+      {typeof window !== "undefined" && typeof window.showDirectoryPicker === "function" &&
+        <button type="button" className="gs-secondary" onClick={onLinkFolder} style={{ padding: "6px 12px", fontSize: 12.5 }}>📁 {tr(["Add a folder of genograms", "가계도 폴더 불러오기", "加入家系圖資料夾"], li)}</button>}
+    </div>
+    {list.length ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
+      {shown.map((r) => <div key={r.id} style={{ display: "flex", alignItems: "center", border: "1px solid #E1E8F0", borderRadius: 9, background: "#FAFCFE" }}>
+        <button type="button" onClick={() => onOpen(r)} title={r.name} style={{ flex: 1, minWidth: 0, textAlign: "left", background: "transparent", border: "none", cursor: "pointer", padding: "8px 10px", fontFamily: FB }}>
+          <div style={{ fontWeight: 700, fontSize: 13.5, color: T.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title || strip(r.name)}</div>
+          <div style={{ fontSize: 11, color: T.mute, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {when(r.at)}{r.people ? ` · ${r.people}${tr(["", "명", "人"], li) || " people"}` : ""}{r.folder ? ` · 📁 ${r.folder}` : ""}
+          </div>
+        </button>
+        <button type="button" aria-label={tr(["Remove from list", "목록에서 빼기", "從清單移除"], li)} title={tr(["Remove from list (the file stays)", "목록에서 빼기 (파일은 그대로)", "從清單移除（檔案保留）"], li)} onClick={() => onForget(r.id)}
+          style={{ border: "none", background: "transparent", color: T.faint, cursor: "pointer", padding: "8px 10px", fontSize: 14 }}>×</button>
+      </div>)}
+    </div> : <div style={{ fontSize: 12.5, color: T.mute, lineHeight: 1.55 }}>
+      {tr(["Genograms you save as a file or open from a file will appear here. To list files you saved before, use “Add a folder of genograms” and choose the folder where they are (for example iCloud Drive › Documents › 가계도 케이스).",
+        "‘파일로’ 저장하거나 파일에서 연 가계도가 여기에 나타납니다. 예전에 저장한 파일은 ‘가계도 폴더 불러오기’로 그 폴더(예: iCloud Drive › 문서 › 가계도 케이스)를 고르면 한 번에 올라옵니다.",
+        "以檔案儲存或從檔案開啟的家系圖會顯示在這裡。先前儲存的檔案，可用「加入家系圖資料夾」選擇所在資料夾一次加入。"], li)}
+    </div>}
+    {list.length > 8 && <button type="button" onClick={() => setAll((v) => !v)} style={{ marginTop: 8, border: "none", background: "transparent", color: T.pine2, cursor: "pointer", fontSize: 12.5, fontFamily: FB }}>{all ? tr(["Show fewer", "접기", "收合"], li) : tr([`Show all ${list.length}`, `모두 보기 (${list.length})`, `顯示全部（${list.length}）`], li)}</button>}
+    <div style={{ fontSize: 11, color: T.mute, marginTop: 8 }}>{tr(["Only the file location is remembered on this computer; the file itself stays where it is.", "이 컴퓨터에는 파일 위치만 기억합니다. 파일은 원래 자리에 그대로 있습니다.", "此電腦只記住檔案位置，檔案本身留在原處。"], li)}</div>
+  </section>;
+}
 
 /* ── export ───────────────────────────────────────────────────── */
 /* ── 면담 질문 가이드 화면 ─────────────────────────────────────────
